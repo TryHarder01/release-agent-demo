@@ -14,6 +14,11 @@ on:
         type: boolean
         required: false
         default: false
+      fast_track:
+        description: 'Development only: skip verification and promote the candidate immediately'
+        type: boolean
+        required: false
+        default: false
 
 env:
   GCP_PROJECT: ${{ vars.GCP_PROJECT || 'warpdemo-505821' }}
@@ -33,16 +38,19 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
       - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        if: ${{ !inputs.fast_track }}
         with:
           node-version: '22'
 
       - name: Install dependencies
+        if: ${{ !inputs.fast_track }}
         run: |
           npm install --no-audit --no-fund
           npm --prefix server install --no-audit --no-fund
           npm --prefix web install --no-audit --no-fund
 
       - name: Install Playwright browsers
+        if: ${{ !inputs.fast_track }}
         run: npx playwright install --with-deps chromium
 
       - name: Authenticate to Google Cloud
@@ -64,6 +72,7 @@ jobs:
       # Exit code: 0 = PROMOTE, 1 = STOP, 2 = NEEDS_REVIEW.
       - name: Verify release candidate
         id: verify
+        if: ${{ !inputs.fast_track }}
         continue-on-error: true
         env:
           BASE_URL: ${{ steps.deploy.outputs.candidate_url }}
@@ -71,14 +80,14 @@ jobs:
 
       # Visual evidence of what the candidate actually looked like when verified.
       - name: Capture candidate media
-        if: always()
+        if: ${{ !inputs.fast_track && always() }}
         continue-on-error: true
         env:
           BASE_URL: ${{ steps.deploy.outputs.candidate_url }}
         run: npm run capture
 
       - name: Upload release report
-        if: always()
+        if: ${{ !inputs.fast_track && always() }}
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: release-report
@@ -88,11 +97,11 @@ jobs:
             media/
 
       - name: Promote to production
-        if: ${{ inputs.auto_promote && steps.verify.outcome == 'success' }}
+        if: ${{ inputs.fast_track || (inputs.auto_promote && steps.verify.outcome == 'success') }}
         run: ./scripts/promote.sh "${{ steps.deploy.outputs.candidate_revision }}"
 
       - name: Fail the job if the candidate did not pass policy
-        if: ${{ steps.verify.outcome != 'success' }}
+        if: ${{ !inputs.fast_track && steps.verify.outcome != 'success' }}
         run: |
           echo "Release verification did not return PROMOTE. Candidate left at 0% traffic."
           cat release-report.json || true
