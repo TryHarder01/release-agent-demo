@@ -120,6 +120,11 @@ given a revision. A bad candidate never sees user traffic. `gcloud` is not
 installed on this machine — `verify-local.sh` exercises the identical sequence
 minus GCP.
 
+The Cloud Run service is still named `vantage-route-planner`, not FleetNet. That
+is load-bearing, not an oversight: renaming a Cloud Run service creates a new one
+and orphans the live revision history, breaking promote/rollback. See
+`docs/deployment.md`.
+
 `ROUTE_DELAY_MS` in `server/src/app.js` injects upstream latency into
 `/api/route`. It is production plumbing for the demo, not debug code: it is how
 regression B is staged.
@@ -160,6 +165,7 @@ unexpected frontmatter keys, so extra fields would break portability.
 
 ## Docs
 
+`docs/api.md` (route contract, determinism rules, status thresholds) ·
 `docs/spec.md` (original brief) · `docs/release-policy.md` (gate + report schema)
-· `docs/deployment.md` (GCP setup, CI credentials) · `docs/regressions.md`
-(follow-on PRs).
+· `docs/deployment.md` (GCP setup, CI credentials, config reference) ·
+`docs/regressions.md` (follow-on PRs).

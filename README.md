@@ -78,8 +78,12 @@ curl -s localhost:8080/api/route \
 }
 ```
 
-Validation errors return `400`. Only 5xx counts against the error budget — a
-rejected bad request is the API working correctly.
+Vehicle types are `van` (default), `box_truck`, and `semi`; `status` is one of
+`optimized`, `suboptimal`, or `requires_relay`. Validation errors return `400` —
+and only 5xx counts against the error budget, since a rejected bad request is the
+API working correctly.
+
+Full contract, seeded lane table, and status thresholds: [docs/api.md](docs/api.md).
 
 ---
 
@@ -91,6 +95,10 @@ The demo's whole argument is this split:
 | --- | --- | --- |
 | **CI** (`ci.yml`) | unit + API tests, web build, container build | broken code |
 | **Release** (`release.yml`) | Playwright, health, error rate, p95 latency | broken *releases* |
+
+CI also runs a `preview` job on pull requests: it boots the container, captures
+screenshots and a walkthrough video, and posts the artifact link as a single
+self-updating PR comment. It is evidence for reviewers, not a gate.
 
 **Playwright is deliberately not in CI.** It runs post-deployment against a real
 candidate revision. That gap is the point: a PR can be green, build clean, deploy
@@ -146,10 +154,14 @@ A bad candidate never receives user traffic. See
 
 ```bash
 npm test              # 19 unit + API tests (vitest + supertest)
-npm run test:e2e      # full Playwright suite
-npm run test:critical # release-gating specs only
+npm run test:e2e      # Playwright chromium project (functional + screenshot specs)
+npm run test:critical # release-gating @critical specs only
 npm run capture       # screenshots + walkthrough video -> media/
 ```
+
+Playwright always runs against `BASE_URL` (default `http://localhost:8080`) — a
+container or a deployed revision, never the Vite dev server. There is no
+`webServer` block in `playwright.config.js`, so something must already be serving.
 
 `npm run capture` produces visual evidence of a running candidate — useful for
 PR comments and demo decks:
@@ -199,7 +211,7 @@ e2e/demo.spec.js            recorded walkthrough
 scripts/verify-release.mjs  the release gate
 scripts/deploy.sh           candidate deploy at 0% traffic
 scripts/promote.sh          promote / roll back
-docs/                       policy, deployment, regression playbook
+docs/                       API, policy, deployment, regression playbook
 ```
 
 ## Stack

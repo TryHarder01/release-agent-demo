@@ -20,6 +20,19 @@ update-traffic --to-revisions X=100   ->  rollback
 A bad candidate never receives user traffic, which is what makes the verdict
 meaningful rather than cosmetic.
 
+## The service is named `vantage-route-planner`
+
+The product is FleetNet; the Cloud Run service still carries the pre-rebrand
+name. **This is deliberate — do not "fix" it.** A service name is part of a Cloud
+Run service's identity: renaming it creates a *new* service with no revision
+history and orphans the live one, which breaks promote and rollback for exactly
+the demo the repo exists to run.
+
+The name appears in `scripts/deploy.sh`, `scripts/promote.sh`, and the `SERVICE`
+env in `.github/workflows/release.yml`. If it ever must change, that is a
+migration — deploy the new service, verify it, shift DNS/traffic, then delete the
+old one — not a rename.
+
 ## One-time GCP setup
 
 ```bash
@@ -93,11 +106,31 @@ The job fails when the verdict is not `PROMOTE`, and the candidate is left at
 
 ## Configuration
 
+Runtime — read by the container:
+
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `PORT` | `8080` | Injected by Cloud Run |
 | `RELEASE_VERSION` | `dev` | Surfaced on `/health`, `/metrics`, and in the UI |
 | `ROUTE_DELAY_MS` | `0` | Simulated upstream latency — see [regressions.md](regressions.md) |
+
+Scripts — read at deploy/promote time, not by the app:
+
+| Variable | Default | Used by | Purpose |
+| --- | --- | --- | --- |
+| `GCP_PROJECT` | *required* | `deploy.sh`, `promote.sh` | Project id; both scripts exit if unset |
+| `GCP_REGION` | `us-central1` | `deploy.sh`, `promote.sh` | Cloud Run region |
+| `SERVICE` | `vantage-route-planner` | `deploy.sh`, `promote.sh` | Service to deploy into — see above before changing |
+| `CANDIDATE_TAG` | `candidate` | `deploy.sh` | Revision tag that gets the candidate URL |
+| `RELEASE_VERSION` | short git SHA | `deploy.sh` | Baked into the revision as an env var |
+| `PORT` | `8080` | `verify-local.sh` | Host port the local container binds to |
+
+The candidate revision is deployed with 1 CPU, 512 MiB, and 1–4 instances.
+`min-instances=1` is intentional: a cold start would land in the p95 the release
+gate measures.
+
+Verifier knobs (`BASE_URL`, the policy thresholds, load shape) are documented in
+[release-policy.md](release-policy.md).
 
 ## No GCP handy?
 

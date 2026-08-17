@@ -16,6 +16,18 @@ Override per-run:
 POLICY_MAX_P95_MS=500 POLICY_MAX_ERROR_RATE=0.005 npm run verify
 ```
 
+| Variable | Default | Effect |
+| --- | --- | --- |
+| `BASE_URL` | `http://localhost:8080` | The candidate to verify. Trailing slash is stripped |
+| `POLICY_MAX_ERROR_RATE` | `0.01` | Error-rate ceiling |
+| `POLICY_MAX_P95_MS` | `750` | p95 route-latency ceiling, in ms |
+| `VERIFY_LOAD_REQUESTS` | `40` | Requests issued before metrics are read |
+| `VERIFY_LOAD_CONCURRENCY` | `4` | Parallel workers issuing them |
+
+The two `POLICY_*` values are echoed into `release-report.json` under `policy`,
+so a report always records the thresholds it was judged against. Loosening a
+threshold to get a `PROMOTE` is therefore visible in the artifact.
+
 ## Verdicts
 
 The verdict is a function of *which* checks failed, not how many:
@@ -37,6 +49,19 @@ human might override; a broken user flow is not.
 4. `GET /metrics` — read error rate and p95
 5. `npx playwright test --grep @critical` against `BASE_URL`
 6. Write `release-report.json`, print the verdict, exit with the matching code
+
+The load is spread round-robin across four seeded lanes — `Denver → Salt Lake
+City` (van), `Dallas → Houston` (semi), `Chicago → Detroit` (box truck), and
+`Seattle → Portland` (van) — so every request exercises a real code path and
+returns a `200`. Client-side failures during load generation are reported for
+context but are not themselves a policy check; the verdict reads the server's own
+counters.
+
+No step short-circuits the run: an unhealthy candidate is still load-tested and
+still runs Playwright, so a single run produces the full picture rather than the
+first failure. If the verifier itself crashes it exits `1` without writing a
+report, which is indistinguishable from `STOP` to a caller reading only the exit
+code — check for `release-report.json` to tell them apart.
 
 ## release-report.json
 
