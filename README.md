@@ -1,11 +1,11 @@
-# Vantage Route Planner
+# FleetNet
 
 A small fleet-routing dashboard that exists to be **deployed, verified, and
 intentionally broken**. It is the target application for a release-agent demo:
 something realistic enough that a deploy/verify/promote decision means
 something, small enough that the whole thing fits in your head.
 
-![Vantage Route Planner](docs/media/route-results.png)
+![FleetNet](docs/media/route-results.png)
 
 The app is scenery. The interesting part is [the release gate](#release-gate).
 

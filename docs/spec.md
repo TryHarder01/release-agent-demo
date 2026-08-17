@@ -1,4 +1,4 @@
-# Vantage Demo App — Loose Spec
+# FleetNet Demo App — Loose Spec
 
 Build a **small React app that looks like a fleet-routing dashboard**. The app itself should stay simple; its purpose is to give the Oz demo something realistic to deploy, verify, and intentionally break.
 
@@ -6,7 +6,7 @@ Build a **small React app that looks like a fleet-routing dashboard**. The app i
 
 Single-page React app with:
 
-- Header: **Vantage Route Planner**
+- Header: **FleetNet**
 - Simple form:
   - Origin
   - Destination

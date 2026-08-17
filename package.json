@@ -1,5 +1,5 @@
 {
-  "name": "vantage-route-planner",
+  "name": "fleetnet-route-planner",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -15,8 +15,8 @@
     "verify": "node scripts/verify-release.mjs",
     "verify:local": "./scripts/verify-local.sh",
     "capture": "node scripts/capture-demo.mjs",
-    "docker:build": "docker build -t vantage-route-planner:local .",
-    "docker:run": "docker run --rm -p 8080:8080 -e PORT=8080 vantage-route-planner:local"
+    "docker:build": "docker build -t fleetnet-route-planner:local .",
+    "docker:run": "docker run --rm -p 8080:8080 -e PORT=8080 fleetnet-route-planner:local"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0",

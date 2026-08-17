@@ -9,7 +9,7 @@ import { expect, test } from '@playwright/test';
 test('@critical calculates and displays a route', async ({ page }) => {
   await page.goto('/');
 
-  await expect(page.getByRole('heading', { name: 'Vantage Route Planner' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'FleetNet' })).toBeVisible();
 
   await page.getByTestId('origin-input').fill('Denver');
   await page.getByTestId('destination-input').fill('Salt Lake City');

@@ -9,8 +9,8 @@
 
 set -euo pipefail
 
-IMAGE="vantage-route-planner:local"
-CONTAINER="vantage-verify-$$"
+IMAGE="fleetnet-route-planner:local"
+CONTAINER="fleetnet-verify-$$"
 PORT="${PORT:-8080}"
 ROUTE_DELAY_MS="${ROUTE_DELAY_MS:-0}"
 
