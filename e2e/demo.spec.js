@@ -8,12 +8,11 @@ import { expect, test } from '@playwright/test';
  * Runs in its own Playwright project so video recording never slows down the
  * release-gating specs. The output .webm is collected by scripts/capture-demo.mjs.
  *
- * Deliberately paced: typing is slowed and there are short holds on each state
- * so the recording is watchable rather than a 400ms blur.
+ * Deliberately paced with short holds on each state so the recording is
+ * watchable rather than a 400ms blur.
  */
 
 const HOLD = Number(process.env.DEMO_HOLD_MS || 900);
-const TYPE_DELAY = Number(process.env.DEMO_TYPE_DELAY_MS || 90);
 
 test('route planner walkthrough', async ({ page }) => {
   await page.goto('/');
@@ -25,12 +24,12 @@ test('route planner walkthrough', async ({ page }) => {
 
   const origin = page.getByTestId('origin-input');
   await origin.click();
-  await origin.pressSequentially('Denver', { delay: TYPE_DELAY });
+  await origin.selectOption('Denver');
   await page.waitForTimeout(HOLD / 2);
 
   const destination = page.getByTestId('destination-input');
   await destination.click();
-  await destination.pressSequentially('Salt Lake City', { delay: TYPE_DELAY });
+  await destination.selectOption('Salt Lake City');
   await page.waitForTimeout(HOLD / 2);
 
   await page.getByTestId('vehicle-select').selectOption('semi');

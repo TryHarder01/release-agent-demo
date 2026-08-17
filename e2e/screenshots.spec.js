@@ -20,8 +20,8 @@ test('@screenshot captures the route planner states', async ({ page }, testInfo)
 
   await page.screenshot({ path: `${SHOT_DIR}/01-empty-state.png`, fullPage: true });
 
-  await page.getByTestId('origin-input').fill('Denver');
-  await page.getByTestId('destination-input').fill('Salt Lake City');
+  await page.getByTestId('origin-input').selectOption('Denver');
+  await page.getByTestId('destination-input').selectOption('Salt Lake City');
   await page.getByTestId('vehicle-select').selectOption('van');
   await page.screenshot({ path: `${SHOT_DIR}/02-form-filled.png`, fullPage: true });
 
@@ -44,8 +44,8 @@ test('@screenshot captures the mobile layout', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
 
-  await page.getByTestId('origin-input').fill('Dallas');
-  await page.getByTestId('destination-input').fill('Houston');
+  await page.getByTestId('origin-input').selectOption('Dallas');
+  await page.getByTestId('destination-input').selectOption('Houston');
   await page.getByTestId('calculate-button').click();
   await expect(page.getByTestId('route-results')).toBeVisible();
 

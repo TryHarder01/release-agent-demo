@@ -114,38 +114,46 @@ export default function App() {
         <section className="panel">
           <h2 className="panel__title">Plan a lane</h2>
           <form onSubmit={onSubmit}>
-            <datalist id="location-options">
-              {LOCATION_OPTIONS.map((location) => (
-                <option key={location} value={location} />
-              ))}
-            </datalist>
-
             <label className="field">
               <span className="field__label">Origin</span>
-              <input
+              <select
                 className="field__input"
                 data-testid="origin-input"
                 name="origin"
-                placeholder="Denver"
                 required
-                list="location-options"
                 value={origin}
                 onChange={(e) => setOrigin(e.target.value)}
-              />
+              >
+                <option value="" disabled>
+                  Select an origin
+                </option>
+                {LOCATION_OPTIONS.map((location) => (
+                  <option key={location} value={location}>
+                    {location}
+                  </option>
+                ))}
+              </select>
             </label>
 
             <label className="field">
               <span className="field__label">Destination</span>
-              <input
+              <select
                 className="field__input"
                 data-testid="destination-input"
                 name="destination"
-                placeholder="Salt Lake City"
                 required
-                list="location-options"
                 value={destination}
                 onChange={(e) => setDestination(e.target.value)}
-              />
+              >
+                <option value="" disabled>
+                  Select a destination
+                </option>
+                {LOCATION_OPTIONS.map((location) => (
+                  <option key={location} value={location}>
+                    {location}
+                  </option>
+                ))}
+              </select>
             </label>
 
             <label className="field">

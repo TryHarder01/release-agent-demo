@@ -11,8 +11,8 @@ test('@critical calculates and displays a route', async ({ page }) => {
 
   await expect(page.getByRole('heading', { name: 'FleetNet' })).toBeVisible();
 
-  await page.getByTestId('origin-input').fill('Denver');
-  await page.getByTestId('destination-input').fill('Salt Lake City');
+  await page.getByTestId('origin-input').selectOption('Denver');
+  await page.getByTestId('destination-input').selectOption('Salt Lake City');
   await page.getByTestId('vehicle-select').selectOption('van');
   await page.getByTestId('calculate-button').click();
 
@@ -31,8 +31,8 @@ test('@critical calculates and displays a route', async ({ page }) => {
 test('@critical reflects vehicle type in the estimate', async ({ page }) => {
   await page.goto('/');
 
-  await page.getByTestId('origin-input').fill('Denver');
-  await page.getByTestId('destination-input').fill('Salt Lake City');
+  await page.getByTestId('origin-input').selectOption('Denver');
+  await page.getByTestId('destination-input').selectOption('Salt Lake City');
   await page.getByTestId('vehicle-select').selectOption('semi');
   await page.getByTestId('calculate-button').click();
 
