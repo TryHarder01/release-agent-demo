@@ -77,17 +77,29 @@ falsifiable; a summary written after the fact is not.
 If the prediction was wrong, say so and explain what you'd misunderstood. A
 corrected prediction is a stronger signal of understanding than a lucky one.
 
-### 5. Show, don't describe, anything that renders
+### 5. Show, don't describe, anything that renders — but don't hand-roll it
 
-For UI changes, embed a screenshot; for a flow, a walkthrough video. `npm run
-capture` produces both. Link them with raw GitHub URLs on the PR branch:
+CI already does this. The `preview` job in `ci.yml` runs the container, runs
+`npm run capture` against it, and posts a **Visual preview** comment with the
+walkthrough embedded inline plus the key screenshots. It updates that same
+comment on every push, so it always reflects the current head.
+
+So your job is not to capture and embed media. It is to **check that the comment
+shows what you claim the change does**, and to say so in the body:
+
+> The preview comment shows the new results card at `abc1234`.
+
+Capture by hand only when CI can't: media that outlives the PR (a `docs/`
+or README still), or a state the walkthrough doesn't reach. Then run `npm run
+capture`, copy the file into `docs/media/` — tracked; `/media/` is gitignored,
+so copy, don't move the gitignore — and reference it on the PR branch:
 
 ```markdown
 ![FleetNet](https://github.com/<org>/<repo>/raw/<branch>/docs/media/route-results.png)
 ```
 
-Curated media belongs in `docs/media/` (tracked). Runtime output in `/media/` is
-gitignored — copy, don't move the gitignore.
+One capture pipeline, one place it's embedded. If you find yourself pasting a
+walkthrough into the body, CI is already doing it and one of the two is stale.
 
 ### 6. Make the review path short
 
@@ -185,6 +197,8 @@ What it did, mapped to the rules above:
   linked `docs/spec.md`. Never listed the 40 files.
 - **Embedded a screenshot and a Playwright-recorded `.webm`** at the top, via raw
   branch URLs — the reviewer saw the working app before reading a word of prose.
+  Do not copy this part: #1 predates the automated preview comment, which now
+  posts the same evidence (see rule 5). Copy the instinct, not the manual step.
 - **Gave the release gate its own section**, with the policy as a table and the
   three verdicts as a table, plus one sentence on the design decision that
   actually needed defending: why `NEEDS_REVIEW` exists as a middle verdict at all
@@ -219,7 +233,7 @@ when available, is not optional.
 - [ ] Real output pasted, nothing paraphrased or invented
 - [ ] Ran `./scripts/verify-local.sh` if runtime behavior changed
 - [ ] Expected verdict stated, and confirmed or corrected
-- [ ] Screenshot or video for anything that renders
+- [ ] CI's **Visual preview** comment landed, and shows the change you're claiming
 - [ ] The three files that carry the argument are named
 - [ ] Unverified gaps listed with reasons
 - [ ] Out-of-scope work named and pointed at its spec
