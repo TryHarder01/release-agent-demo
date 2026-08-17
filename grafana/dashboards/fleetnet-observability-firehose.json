@@ -1,0 +1,184 @@
+{
+  "uid": "fleetnet-observability-firehose",
+  "title": "FleetNet — Observability Firehose",
+  "tags": ["fleetnet", "observability", "demo"],
+  "timezone": "browser",
+  "schemaVersion": 41,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-3h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "service",
+        "label": "Cloud Run service",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "gmp" },
+        "query": { "qryType": 1, "query": "label_values({__name__=\"run.googleapis.com/request_count\"}, service_name)", "refId": "service" },
+        "refresh": 1,
+        "includeAll": false,
+        "multi": false,
+        "current": { "text": "fleetnet-route-planner", "value": "fleetnet-route-planner" }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "row",
+      "id": 100,
+      "title": "Everything the platform exposes — useful context, no release decision",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "id": 1,
+      "title": "Request rate",
+      "description": "A useful number that still says nothing about whether a candidate should be promoted.",
+      "datasource": { "type": "prometheus", "uid": "gmp" },
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 1 },
+      "targets": [{ "refId": "A", "expr": "sum(rate({__name__=\"run.googleapis.com/request_count\", service_name=\"$service\"}[$__rate_interval]))" }],
+      "fieldConfig": { "defaults": { "unit": "reqps", "decimals": 2, "color": { "mode": "palette-classic" } }, "overrides": [] },
+      "options": { "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" }, "orientation": "auto", "textMode": "auto", "colorMode": "value", "graphMode": "area", "justifyMode": "auto" }
+    },
+    {
+      "type": "stat",
+      "id": 2,
+      "title": "Requests in window",
+      "datasource": { "type": "prometheus", "uid": "gmp" },
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 1 },
+      "targets": [{ "refId": "A", "expr": "sum(increase({__name__=\"run.googleapis.com/request_count\", service_name=\"$service\"}[$__range]))" }],
+      "fieldConfig": { "defaults": { "decimals": 0, "color": { "mode": "palette-classic" } }, "overrides": [] },
+      "options": { "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" }, "orientation": "auto", "textMode": "auto", "colorMode": "value", "graphMode": "area", "justifyMode": "auto" }
+    },
+    {
+      "type": "stat",
+      "id": 3,
+      "title": "Active revisions",
+      "datasource": { "type": "prometheus", "uid": "gmp" },
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 1 },
+      "targets": [{ "refId": "A", "expr": "count(count by (revision_name) ({__name__=\"run.googleapis.com/request_count\", service_name=\"$service\"}))" }],
+      "fieldConfig": { "defaults": { "decimals": 0, "color": { "mode": "palette-classic" } }, "overrides": [] },
+      "options": { "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" }, "orientation": "auto", "textMode": "auto", "colorMode": "value", "graphMode": "area", "justifyMode": "auto" }
+    },
+    {
+      "type": "stat",
+      "id": 4,
+      "title": "5xx rate",
+      "datasource": { "type": "prometheus", "uid": "gmp" },
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 1 },
+      "targets": [{ "refId": "A", "expr": "(sum(rate({__name__=\"run.googleapis.com/request_count\", service_name=\"$service\", response_code_class=\"5xx\"}[$__rate_interval])) or vector(0)) / clamp_min(sum(rate({__name__=\"run.googleapis.com/request_count\", service_name=\"$service\"}[$__rate_interval])), 1e-9)" }],
+      "fieldConfig": { "defaults": { "unit": "percentunit", "decimals": 2, "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "#0ca30c", "value": null }, { "color": "#d03b3b", "value": 0.01 }] } }, "overrides": [] },
+      "options": { "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" }, "orientation": "auto", "textMode": "auto", "colorMode": "value", "graphMode": "area", "justifyMode": "auto" }
+    },
+    {
+      "type": "stat",
+      "id": 5,
+      "title": "p50 latency",
+      "datasource": { "type": "prometheus", "uid": "gmp" },
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 1 },
+      "targets": [{ "refId": "A", "expr": "histogram_quantile(0.50, sum by (le) (rate({__name__=\"run.googleapis.com/request_latencies_bucket\", service_name=\"$service\"}[$__rate_interval])))" }],
+      "fieldConfig": { "defaults": { "unit": "ms", "decimals": 0, "color": { "mode": "palette-classic" } }, "overrides": [] },
+      "options": { "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" }, "orientation": "auto", "textMode": "auto", "colorMode": "value", "graphMode": "area", "justifyMode": "auto" }
+    },
+    {
+      "type": "stat",
+      "id": 6,
+      "title": "p99 latency",
+      "datasource": { "type": "prometheus", "uid": "gmp" },
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 1 },
+      "targets": [{ "refId": "A", "expr": "histogram_quantile(0.99, sum by (le) (rate({__name__=\"run.googleapis.com/request_latencies_bucket\", service_name=\"$service\"}[$__rate_interval])))" }],
+      "fieldConfig": { "defaults": { "unit": "ms", "decimals": 0, "color": { "mode": "palette-classic" } }, "overrides": [] },
+      "options": { "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" }, "orientation": "auto", "textMode": "auto", "colorMode": "value", "graphMode": "area", "justifyMode": "auto" }
+    },
+    {
+      "type": "timeseries",
+      "id": 7,
+      "title": "Request rate by response class",
+      "datasource": { "type": "prometheus", "uid": "gmp" },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 5 },
+      "targets": [{ "refId": "A", "expr": "sum by (response_code_class) (rate({__name__=\"run.googleapis.com/request_count\", service_name=\"$service\"}[$__rate_interval]))", "legendFormat": "{{response_code_class}}" }],
+      "fieldConfig": { "defaults": { "unit": "reqps", "color": { "mode": "palette-classic" }, "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 12, "showPoints": "never", "spanNulls": false } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["lastNotNull", "max"] }, "tooltip": { "mode": "multi", "sort": "desc" } }
+    },
+    {
+      "type": "timeseries",
+      "id": 8,
+      "title": "Request rate by revision",
+      "datasource": { "type": "prometheus", "uid": "gmp" },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 5 },
+      "targets": [{ "refId": "A", "expr": "sum by (revision_name) (rate({__name__=\"run.googleapis.com/request_count\", service_name=\"$service\"}[$__rate_interval]))", "legendFormat": "{{revision_name}}" }],
+      "fieldConfig": { "defaults": { "unit": "reqps", "color": { "mode": "palette-classic" }, "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 8, "showPoints": "never", "spanNulls": false } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["lastNotNull"] }, "tooltip": { "mode": "multi", "sort": "desc" } }
+    },
+    {
+      "type": "timeseries",
+      "id": 9,
+      "title": "Cumulative requests by revision",
+      "datasource": { "type": "prometheus", "uid": "gmp" },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 5 },
+      "targets": [{ "refId": "A", "expr": "sum by (revision_name) (increase({__name__=\"run.googleapis.com/request_count\", service_name=\"$service\"}[$__range]))", "legendFormat": "{{revision_name}}" }],
+      "fieldConfig": { "defaults": { "decimals": 0, "color": { "mode": "palette-classic" }, "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 10, "showPoints": "never", "spanNulls": false } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["lastNotNull"] }, "tooltip": { "mode": "multi", "sort": "desc" } }
+    },
+    {
+      "type": "row",
+      "id": 101,
+      "title": "Latency slices — all real, still not an answer",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 13 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "id": 10,
+      "title": "p50 / p95 / p99 latency",
+      "datasource": { "type": "prometheus", "uid": "gmp" },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 14 },
+      "targets": [
+        { "refId": "A", "expr": "histogram_quantile(0.50, sum by (le) (rate({__name__=\"run.googleapis.com/request_latencies_bucket\", service_name=\"$service\"}[$__rate_interval])))", "legendFormat": "p50" },
+        { "refId": "B", "expr": "histogram_quantile(0.95, sum by (le) (rate({__name__=\"run.googleapis.com/request_latencies_bucket\", service_name=\"$service\"}[$__rate_interval])))", "legendFormat": "p95" },
+        { "refId": "C", "expr": "histogram_quantile(0.99, sum by (le) (rate({__name__=\"run.googleapis.com/request_latencies_bucket\", service_name=\"$service\"}[$__rate_interval])))", "legendFormat": "p99" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "ms", "color": { "mode": "palette-classic" }, "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 0, "showPoints": "never", "spanNulls": false } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["lastNotNull", "max"] }, "tooltip": { "mode": "multi", "sort": "desc" } }
+    },
+    {
+      "type": "timeseries",
+      "id": 11,
+      "title": "p95 latency by revision",
+      "description": "The data that needs a candidate identity and a policy to become a release decision.",
+      "datasource": { "type": "prometheus", "uid": "gmp" },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 14 },
+      "targets": [{ "refId": "A", "expr": "histogram_quantile(0.95, sum by (revision_name, le) (rate({__name__=\"run.googleapis.com/request_latencies_bucket\", service_name=\"$service\"}[$__rate_interval])))", "legendFormat": "{{revision_name}}" }],
+      "fieldConfig": { "defaults": { "unit": "ms", "color": { "mode": "palette-classic" }, "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 0, "showPoints": "never", "spanNulls": false } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["lastNotNull", "max"] }, "tooltip": { "mode": "multi", "sort": "desc" } }
+    },
+    {
+      "type": "timeseries",
+      "id": 12,
+      "title": "p95 latency by response class",
+      "datasource": { "type": "prometheus", "uid": "gmp" },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 14 },
+      "targets": [{ "refId": "A", "expr": "histogram_quantile(0.95, sum by (response_code_class, le) (rate({__name__=\"run.googleapis.com/request_latencies_bucket\", service_name=\"$service\"}[$__rate_interval])))", "legendFormat": "{{response_code_class}}" }],
+      "fieldConfig": { "defaults": { "unit": "ms", "color": { "mode": "palette-classic" }, "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 0, "showPoints": "never", "spanNulls": false } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["lastNotNull", "max"] }, "tooltip": { "mode": "multi", "sort": "desc" } }
+    },
+    {
+      "type": "table",
+      "id": 13,
+      "title": "Revision / response-class matrix",
+      "description": "Correct data, many dimensions, and no conclusion. This is the handoff point for the release agent.",
+      "datasource": { "type": "prometheus", "uid": "gmp" },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 22 },
+      "targets": [
+        { "refId": "A", "format": "table", "instant": true, "expr": "sum by (revision_name, response_code_class) (increase({__name__=\"run.googleapis.com/request_count\", service_name=\"$service\"}[$__range]))" },
+        { "refId": "B", "format": "table", "instant": true, "expr": "histogram_quantile(0.95, sum by (revision_name, response_code_class, le) (rate({__name__=\"run.googleapis.com/request_latencies_bucket\", service_name=\"$service\"}[$__range])))" }
+      ],
+      "transformations": [{ "id": "joinByField", "options": { "byField": "revision_name", "mode": "outer" } }],
+      "fieldConfig": { "defaults": { "custom": { "align": "auto", "cellOptions": { "type": "auto" } } }, "overrides": [] },
+      "options": { "showHeader": true, "cellHeight": "sm", "footer": { "show": false, "reducer": ["sum"], "countRows": false, "fields": "" } }
+    }
+  ]
+}

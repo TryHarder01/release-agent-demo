@@ -63,6 +63,12 @@ count, and error rate. `scripts/deploy.sh` already writes `candidate_revision` t
 brief cites. It is independent corroborating evidence for the brief, not a
 current input to the gate or a substitute for Oz's bounded release decision.
 
+**Observability Firehose** — a companion dashboard deliberately filled with
+request, response-class, revision, and percentile slices drawn from the exact
+same Cloud Run metrics. It is the contrast slide: each panel is valid, but none
+answers whether a 0%-traffic candidate is safe to promote. Open it at
+`/d/fleetnet-observability-firehose`.
+
 ## Two things not to confuse
 
 **This is not the gate's number.** Cloud Run measures edge-to-edge latency across
