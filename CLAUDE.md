@@ -21,7 +21,7 @@ npm test                 # 19 unit + API tests (vitest + supertest, in server/)
 npm run build            # web bundle -> web/dist, which the server then serves
 npm run verify           # release gate against BASE_URL (default localhost:8080)
 npm run verify:local     # full rehearsal: build image, run it, verify, tear down
-npm run capture          # screenshots + walkthrough video -> media/
+npm run capture          # screenshots + walkthrough .webm and inline .mp4 -> media/
 ```
 
 Tests:
@@ -107,8 +107,56 @@ rows so a downstream agent can branch on it directly. Keep that mapping intact.
 the demo. Moving e2e into `ci.yml` would look like an improvement and would
 destroy the thing this repo exists to demonstrate.
 
-`ci.yml`'s `preview` job runs the container, captures media, and posts/updates a
-single PR comment with the artifact link.
+### The visual preview comment
+
+`ci.yml`'s `preview` job runs the container, runs `npm run capture` against it,
+and posts/updates a single PR comment with the walkthrough **embedded inline**.
+This is the only place PR media is produced — the `pull-request` skill's rule 5
+points authors at this comment rather than having them capture and embed by
+hand. Keep it that way; two capture paths means one of them is stale.
+
+The walkthrough is a **real video player**, and getting one is narrower than it
+looks. GitHub's comment sanitizer drops `<video>` tags entirely — verify with
+`POST /markdown` and watch the tag come back as an empty paragraph — and it
+renders a player for exactly one thing: a bare `github.com/user-attachments/
+assets/<uuid>` URL **on its own line**. Wrapping that URL in markdown link
+syntax leaves it a link; wrapping it in `<video>` deletes it.
+
+`scripts/publish-media.mjs` gets those URLs by posting to
+`uploads.github.com/user-attachments/assets`, the endpoint browser
+drag-and-drop calls. The response asset is served from
+`private-user-images.githubusercontent.com` with a per-viewer signed JWT, so it
+works on a private repo with no branch, no bucket, and no public copy of
+anything. The endpoint takes `.mp4`/`.mov` but not `.webm`, which is why
+`capture-demo.mjs` transcodes to H.264 (`yuv420p`, `+faststart`); the `.webm`
+stays in the uploaded artifact as the source copy.
+
+That endpoint is **undocumented**. Treat a failure as expected weather: the
+upload step is `continue-on-error`, uses the `MEDIA_GH_TOKEN` secret (a
+fine-grained PAT verified against this endpoint) when set and `GITHUB_TOKEN`
+otherwise, and the comment falls back to the artifact download link if both are
+rejected. Fork PRs never receive secrets, so they always land on that fallback.
+
+On token permissions: the endpoint returns no `x-accepted-oauth-scopes` header,
+so the requirement cannot be read off the API — it was found by trial. Two
+tokens are **verified** to return `201`:
+
+| Token | Permissions | Result |
+| --- | --- | --- |
+| Classic PAT | `repo` (plus unrelated `gist`, `read:org`, `admin:public_key`) | works |
+| Fine-grained PAT | Actions RW · Metadata R (mandatory) · Pull requests RW | works |
+
+The fine-grained row is the informative one: at the time it was tested it
+carried **no Contents permission at all** and still returned `201`, so
+repository *content* access is not what gates the upload. (The token now behind
+`MEDIA_GH_TOKEN` has since been given Contents as well — harmless, just wider
+than the endpoint needs.) Which permission is actually load-bearing is still
+unknown; narrowing it needs more tokens than were minted. `public_repo` on a
+classic PAT cannot work here — the repo is private.
+
+Auth is enforced cleanly — `401` on a bad token, `400` on none — so the CI
+fallback triggers rather than posting a broken embed. Uploads are attributed to
+the token's owner, so a PAT makes the preview media that human's, not the bot's.
 
 ### Deploy / promote
 

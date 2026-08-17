@@ -14,3 +14,7 @@ release-report.json
 
 # Per-developer agent config. The shared instructions and skills are tracked.
 .claude/settings.local.json
+
+# Local PAT used to exercise the attachment upload by hand. In CI this comes
+# from the MEDIA_GH_TOKEN secret and is never written to disk.
+token
