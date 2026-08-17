@@ -11,7 +11,7 @@
 # Env:
 #   GCP_PROJECT     default warpdemo-505821
 #   GCP_REGION      default northamerica-northeast1
-#   SERVICE         default vantage-route-planner
+#   SERVICE         default fleetnet-route-planner
 #   CANDIDATE_TAG   default candidate
 #   IMAGE_REF       required — immutable CI-built Artifact Registry image tag or digest
 #   ROUTE_DELAY_MS  default 0 — set to 2500 to simulate the latency regression
@@ -20,7 +20,7 @@ set -euo pipefail
 
 GCP_PROJECT="${GCP_PROJECT:-warpdemo-505821}"
 GCP_REGION="${GCP_REGION:-northamerica-northeast1}"
-SERVICE="${SERVICE:-vantage-route-planner}"
+SERVICE="${SERVICE:-fleetnet-route-planner}"
 CANDIDATE_TAG="${CANDIDATE_TAG:-candidate}"
 ROUTE_DELAY_MS="${ROUTE_DELAY_MS:-0}"
 RELEASE_VERSION="${RELEASE_VERSION:-$(git rev-parse --short HEAD 2>/dev/null || echo dev)}"

@@ -6,13 +6,13 @@
 #   ./scripts/promote.sh <candidate-revision>
 #
 # To roll back instead, pass a known-good revision:
-#   ./scripts/promote.sh vantage-route-planner-00007-abc
+#   ./scripts/promote.sh fleetnet-route-planner-00007-abc
 
 set -euo pipefail
 
 GCP_PROJECT="${GCP_PROJECT:-warpdemo-505821}"
 GCP_REGION="${GCP_REGION:-northamerica-northeast1}"
-SERVICE="${SERVICE:-vantage-route-planner}"
+SERVICE="${SERVICE:-fleetnet-route-planner}"
 TARGET_REVISION="${1:-}"
 
 if [[ -n "${TARGET_REVISION}" ]]; then

@@ -14,7 +14,7 @@ or `gcloud config set`. Do not invoke `gh` commands that write state.
 ```bash
 PROJECT=warpdemo-505821
 REGION=northamerica-northeast1
-SERVICE=vantage-route-planner
+SERVICE=fleetnet-route-planner
 REPOSITORY=warpdemo
 IMAGE=northamerica-northeast1-docker.pkg.dev/warpdemo-505821/warpdemo/fleetnet-route-planner
 SA_EMAIL=warpdemogha@warpdemo-505821.iam.gserviceaccount.com

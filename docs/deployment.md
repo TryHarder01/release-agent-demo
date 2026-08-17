@@ -54,7 +54,7 @@ export IMAGE_REF=northamerica-northeast1-docker.pkg.dev/warpdemo-505821/warpdemo
 
 This deploys at **0% traffic** with the tag `candidate` and prints two URLs:
 
-- `candidate url` — the revision under test, e.g. `https://candidate---vantage-route-planner-xxxx.run.app`
+- `candidate url` — the revision under test, e.g. `https://candidate---fleetnet-route-planner-xxxx.run.app`
 - `production url` — the stable service URL serving live traffic
 
 ## Verify, then promote
@@ -67,8 +67,8 @@ BASE_URL=<candidate url> npm run verify   # 0 = PROMOTE, 1 = STOP, 2 = NEEDS_REV
 Rollback to a specific revision:
 
 ```bash
-./scripts/promote.sh vantage-route-planner-00007-abc
-gcloud run revisions list --service vantage-route-planner --region "$GCP_REGION"
+./scripts/promote.sh fleetnet-route-planner-00007-abc
+gcloud run revisions list --service fleetnet-route-planner --region "$GCP_REGION"
 ```
 
 ## CI

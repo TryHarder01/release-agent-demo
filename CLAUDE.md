@@ -107,6 +107,11 @@ rows so a downstream agent can branch on it directly. Keep that mapping intact.
 the demo. Moving e2e into `ci.yml` would look like an improvement and would
 destroy the thing this repo exists to demonstrate.
 
+**Pin every GitHub Action to a full commit SHA.** Use an inline `# v…` comment
+after each `uses:` reference to preserve the human-readable action version.
+Never use a mutable action tag as the reference; when upgrading an action,
+resolve the release tag to its commit SHA first.
+
 `ci.yml`'s `preview` job runs the container, captures media, and posts/updates a
 single PR comment with the artifact link.
 

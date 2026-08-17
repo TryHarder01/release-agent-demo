@@ -46,7 +46,7 @@ Written on every run for a downstream agent to consume:
 {
   "verdict": "NEEDS_REVIEW",
   "reason": "Functionality is healthy but the release budget was exceeded: p95_latency.",
-  "base_url": "https://candidate---vantage-route-planner-xxxx.run.app",
+  "base_url": "https://candidate---fleetnet-route-planner-xxxx.run.app",
   "version": "1caaa46",
   "evaluated_at": "2026-08-17T19:12:04.881Z",
   "policy": {
