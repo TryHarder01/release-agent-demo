@@ -1,0 +1,25 @@
+{
+  "name": "vantage-route-planner",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Fleet routing dashboard used as a deploy/verify/promote demo target.",
+  "scripts": {
+    "install:all": "npm install && npm --prefix server install && npm --prefix web install",
+    "dev": "concurrently -n api,web -c blue,magenta \"npm --prefix server run dev\" \"npm --prefix web run dev\"",
+    "build": "npm --prefix web run build",
+    "start": "node server/src/index.js",
+    "test": "npm --prefix server test",
+    "test:e2e": "playwright test --project=chromium",
+    "test:critical": "playwright test --project=chromium --grep @critical",
+    "verify": "node scripts/verify-release.mjs",
+    "verify:local": "./scripts/verify-local.sh",
+    "capture": "node scripts/capture-demo.mjs",
+    "docker:build": "docker build -t vantage-route-planner:local .",
+    "docker:run": "docker run --rm -p 8080:8080 -e PORT=8080 vantage-route-planner:local"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0",
+    "concurrently": "^9.1.0"
+  }
+}
