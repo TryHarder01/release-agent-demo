@@ -129,7 +129,7 @@ Candidates deploy at **0% traffic** with their own tagged URL. Production keeps
 serving the previous revision until something explicitly promotes:
 
 ```bash
-export GCP_PROJECT=your-project-id
+export GCP_PROJECT=warpdemo-505821
 
 ./scripts/deploy.sh                        # candidate at 0% traffic, prints its URL
 BASE_URL=<candidate url> npm run verify    # 0 PROMOTE / 1 STOP / 2 NEEDS_REVIEW

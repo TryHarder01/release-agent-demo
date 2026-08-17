@@ -9,16 +9,16 @@
 # until scripts/promote.sh is run.
 #
 # Env:
-#   GCP_PROJECT     (required) GCP project id
-#   GCP_REGION      default us-central1
+#   GCP_PROJECT     default warpdemo-505821
+#   GCP_REGION      default northamerica-northeast1
 #   SERVICE         default vantage-route-planner
 #   CANDIDATE_TAG   default candidate
 #   ROUTE_DELAY_MS  default 0 — set to 2500 to simulate the latency regression
 
 set -euo pipefail
 
-GCP_PROJECT="${GCP_PROJECT:?GCP_PROJECT must be set}"
-GCP_REGION="${GCP_REGION:-us-central1}"
+GCP_PROJECT="${GCP_PROJECT:-warpdemo-505821}"
+GCP_REGION="${GCP_REGION:-northamerica-northeast1}"
 SERVICE="${SERVICE:-vantage-route-planner}"
 CANDIDATE_TAG="${CANDIDATE_TAG:-candidate}"
 ROUTE_DELAY_MS="${ROUTE_DELAY_MS:-0}"

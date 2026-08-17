@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
 
+env:
+  REGISTRY: northamerica-northeast1-docker.pkg.dev
+  IMAGE: northamerica-northeast1-docker.pkg.dev/warpdemo-505821/warpdemo/fleetnet-route-planner
+
 jobs:
   test:
     name: Build & test
@@ -33,6 +37,78 @@ jobs:
 
       - name: Build container image
         run: docker build -t fleetnet-route-planner:ci .
+
+  # Publishes the merged image to Artifact Registry. This is a registry copy,
+  # not a release: release.yml still builds its own candidate via Cloud Build
+  # (`gcloud run deploy --source .`) and verifies that. Pushing here does not
+  # promote anything and does not make a green CI sufficient to ship.
+  push:
+    name: Push image to Artifact Registry
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          token_format: access_token
+
+      - name: Log in to Artifact Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: oauth2accesstoken
+          password: ${{ steps.auth.outputs.access_token }}
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Derive tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          # sha-<short> is the durable identity; latest is a convenience pointer.
+          # Deliberately not semver — nothing here is versioned or released from
+          # a tag, and a scheme nothing consumes is just upkeep.
+          tags: |
+            type=sha
+            type=raw,value=latest
+
+      # Cloud Run is amd64. GitHub runners are too, so this is a native build,
+      # but the platform is pinned so it stays correct on arm64 runners.
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Summarize
+        run: |
+          {
+            echo "### Image pushed"
+            echo ""
+            echo '```'
+            echo "${{ env.IMAGE }}@${{ steps.build.outputs.digest }}"
+            echo '```'
+            echo ""
+            echo "Tagged \`sha-${GITHUB_SHA::7}\` and \`latest\`."
+            echo ""
+            echo "> Not a release. Deploy and verification happen in release.yml."
+          } >> "$GITHUB_STEP_SUMMARY"
 
   preview:
     name: Visual preview

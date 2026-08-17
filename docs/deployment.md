@@ -22,9 +22,11 @@ meaningful rather than cosmetic.
 
 ## One-time GCP setup
 
+For deploying by hand:
+
 ```bash
-export GCP_PROJECT=your-project-id
-export GCP_REGION=us-central1
+export GCP_PROJECT=warpdemo-505821
+export GCP_REGION=northamerica-northeast1
 
 gcloud auth login
 gcloud config set project "$GCP_PROJECT"
@@ -35,13 +37,17 @@ gcloud services enable \
   artifactregistry.googleapis.com
 ```
 
+The identity CI uses is a separate concern — service account, IAM roles,
+Workload Identity Federation, and the registry are all in
+[gcp-setup.md](gcp-setup.md).
+
 `deploy.sh` uses `gcloud run deploy --source .`, which hands the Dockerfile to
 Cloud Build — no local Docker or registry wrangling needed.
 
 ## Deploy a candidate
 
 ```bash
-export GCP_PROJECT=your-project-id
+export GCP_PROJECT=warpdemo-505821
 ./scripts/deploy.sh
 ```
 
@@ -67,18 +73,46 @@ gcloud run revisions list --service vantage-route-planner --region "$GCP_REGION"
 ## CI
 
 `.github/workflows/release.yml` runs deploy → verify → (optional) promote. It
-needs Workload Identity Federation:
+authenticates with Workload Identity Federation — no service account key. See
+[gcp-setup.md](gcp-setup.md) to build that identity from scratch; the values it
+needs are:
 
 | Kind | Name | Value |
 | --- | --- | --- |
-| Variable | `GCP_PROJECT` | your project id |
-| Variable | `GCP_REGION` | e.g. `us-central1` |
-| Secret | `GCP_WIF_PROVIDER` | `projects/N/locations/global/workloadIdentityPools/POOL/providers/PROVIDER` |
-| Secret | `GCP_SERVICE_ACCOUNT` | `deployer@PROJECT.iam.gserviceaccount.com` |
+| Variable | `GCP_PROJECT` | `warpdemo-505821` |
+| Variable | `GCP_REGION` | e.g. `northamerica-northeast1` |
+| Secret | `GCP_WIF_PROVIDER` | `projects/638332938882/locations/global/workloadIdentityPools/github/providers/github` |
+| Secret | `GCP_SERVICE_ACCOUNT` | `warpdemogha@warpdemo-505821.iam.gserviceaccount.com` |
 
 The deploying service account needs `roles/run.admin`,
 `roles/cloudbuild.builds.editor`, `roles/artifactregistry.writer`, and
 `roles/iam.serviceAccountUser`.
+
+`ci.yml`'s `push` job uses the same two secrets to publish the merged image to
+Artifact Registry on every push to `main`:
+
+```
+northamerica-northeast1-docker.pkg.dev/warpdemo-505821/warpdemo/fleetnet-route-planner
+```
+
+Tagged `sha-<short-sha>` and `latest`, built for `linux/amd64`, with the layer
+cache in GitHub Actions. No semver — nothing is released from a git tag here, so
+the commit sha is the only identity worth having. It runs only after the test job passes, and only on
+`main` — pull requests build the image but never push it.
+
+That image is a registry copy, **not** the release artifact. `release.yml` still
+builds its own candidate through Cloud Build and verifies that. Nothing consumes
+the pushed image yet; wiring `deploy.sh` to `--image` would make the verified
+artifact and the published artifact the same thing, which they currently are not.
+
+Create the repo once if it does not exist:
+
+```bash
+gcloud artifacts repositories create warpdemo \
+  --repository-format=docker \
+  --location=northamerica-northeast1 \
+  --project=warpdemo-505821
+```
 
 Trigger it:
 

@@ -16,8 +16,8 @@ on:
         default: false
 
 env:
-  GCP_PROJECT: ${{ vars.GCP_PROJECT }}
-  GCP_REGION: ${{ vars.GCP_REGION || 'us-central1' }}
+  GCP_PROJECT: ${{ vars.GCP_PROJECT || 'warpdemo-505821' }}
+  GCP_REGION: ${{ vars.GCP_REGION || 'northamerica-northeast1' }}
   SERVICE: vantage-route-planner
 
 jobs:

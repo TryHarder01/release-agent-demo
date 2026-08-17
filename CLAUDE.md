@@ -100,7 +100,7 @@ rows so a downstream agent can branch on it directly. Keep that mapping intact.
 
 | Workflow | Runs | Catches |
 | --- | --- | --- |
-| `ci.yml` (every PR) | unit + API tests, web build, container build | broken code |
+| `ci.yml` (every PR) | unit + API tests, web build, container build; pushes the image to Artifact Registry on `main` only | broken code |
 | `release.yml` (`workflow_dispatch`) | deploy candidate, Playwright, health, error rate, p95 | broken *releases* |
 
 **Playwright is intentionally absent from CI.** That gap is the entire point of
@@ -109,6 +109,12 @@ destroy the thing this repo exists to demonstrate.
 
 `ci.yml`'s `preview` job runs the container, captures media, and posts/updates a
 single PR comment with the artifact link.
+
+`ci.yml`'s `push` job publishes the merged image to Artifact Registry on `main`.
+It is a registry copy, not a release — `release.yml` still builds its own
+candidate via Cloud Build and verifies that. A pushed image has passed unit tests
+and nothing else, so do not treat its existence as evidence a build is
+promotable.
 
 ### Deploy / promote
 
@@ -161,5 +167,5 @@ unexpected frontmatter keys, so extra fields would break portability.
 ## Docs
 
 `docs/spec.md` (original brief) · `docs/release-policy.md` (gate + report schema)
-· `docs/deployment.md` (GCP setup, CI credentials) · `docs/regressions.md`
-(follow-on PRs).
+· `docs/deployment.md` (deploy, verify, promote) · `docs/gcp-setup.md` (WIF
+identity, IAM roles, registry) · `docs/regressions.md` (follow-on PRs).

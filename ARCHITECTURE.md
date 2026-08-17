@@ -110,7 +110,7 @@ workflow with `auto_promote` enabled — the architecture does not care which.
 | Release agent | `scripts/verify-release.mjs` + `promote.sh`, driven by a human or `release.yml` |
 | Vantage Route Planner | This repo — `server/` + `web/`, one image |
 | GitHub Actions | `.github/workflows/ci.yml`, `.github/workflows/release.yml` |
-| Google Cloud Run | Service `vantage-route-planner`, region default `us-central1` |
+| Google Cloud Run | Service `vantage-route-planner`, region default `northamerica-northeast1` |
 
 ---
 

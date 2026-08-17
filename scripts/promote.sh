@@ -10,8 +10,8 @@
 
 set -euo pipefail
 
-GCP_PROJECT="${GCP_PROJECT:?GCP_PROJECT must be set}"
-GCP_REGION="${GCP_REGION:-us-central1}"
+GCP_PROJECT="${GCP_PROJECT:-warpdemo-505821}"
+GCP_REGION="${GCP_REGION:-northamerica-northeast1}"
 SERVICE="${SERVICE:-vantage-route-planner}"
 TARGET_REVISION="${1:-}"
 
