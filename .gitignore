@@ -1,0 +1,13 @@
+node_modules/
+web/dist/
+
+# Runtime verification output. Curated copies live in docs/media/ (tracked).
+/media/
+playwright-report/
+test-results/
+release-report.json
+
+.env
+.env.local
+*.log
+.DS_Store
