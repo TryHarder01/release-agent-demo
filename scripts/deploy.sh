@@ -50,7 +50,8 @@ gcloud run deploy "${SERVICE}" \
 CANDIDATE_URL="$(gcloud run services describe "${SERVICE}" \
   --project "${GCP_PROJECT}" \
   --region "${GCP_REGION}" \
-  --format="value(status.traffic.filter(\"tag:${CANDIDATE_TAG}\").extract(url))" | tr -d '[]')"
+  --format="value(status.traffic.filter(\"tag:${CANDIDATE_TAG}\").extract(url))" | tr -d "[]'")"
+: "${CANDIDATE_URL:?Could not determine the candidate URL}"
 
 PROD_URL="$(gcloud run services describe "${SERVICE}" \
   --project "${GCP_PROJECT}" \
