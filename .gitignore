@@ -19,3 +19,8 @@ google-cloud-cli-*.tar.gz
 
 # Per-developer agent config. The shared instructions and skills are tracked.
 .claude/settings.local.json
+warpdemo-505821-9771c26edc3f.json
+# Grafana's copy/pointer to a GCP service-account key. The key itself is
+# ignored by name above; these guard the local wiring too.
+grafana/gcp-key.json
+grafana/.env

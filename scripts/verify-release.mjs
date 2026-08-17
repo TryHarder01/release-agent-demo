@@ -30,10 +30,10 @@ const LOAD_CONCURRENCY = Number(process.env.VERIFY_LOAD_CONCURRENCY || 4);
 const REPORT_PATH = path.resolve(process.cwd(), 'release-report.json');
 
 const LANES = [
-  { origin: 'Denver', destination: 'Salt Lake City', vehicle_type: 'van' },
-  { origin: 'Dallas', destination: 'Houston', vehicle_type: 'semi' },
-  { origin: 'Chicago', destination: 'Detroit', vehicle_type: 'box_truck' },
-  { origin: 'Seattle', destination: 'Portland', vehicle_type: 'van' },
+  { origin: 'Denver', destination: 'Salt Lake City', vehicle_type: 'van', service_level: 'standard' },
+  { origin: 'Dallas', destination: 'Houston', vehicle_type: 'semi', service_level: 'expedited' },
+  { origin: 'Chicago', destination: 'Detroit', vehicle_type: 'box_truck', service_level: 'refrigerated' },
+  { origin: 'Seattle', destination: 'Portland', vehicle_type: 'van', service_level: 'standard' },
 ];
 
 const log = (msg) => process.stdout.write(`${msg}\n`);
@@ -114,6 +114,7 @@ async function readMetrics() {
       error_rate: body.error_rate,
       p95_route_latency_ms: body.route_latency_ms?.p95 ?? null,
       p50_route_latency_ms: body.route_latency_ms?.p50 ?? null,
+      dispatch_profiles: body.dispatch_profiles ?? {},
     };
   } catch (err) {
     return { pass: false, detail: err.message };

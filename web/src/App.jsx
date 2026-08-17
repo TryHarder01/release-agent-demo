@@ -8,6 +8,12 @@ const VEHICLE_OPTIONS = [
   { value: 'semi', label: 'Semi Trailer' },
 ];
 
+const SERVICE_LEVEL_OPTIONS = [
+  { value: 'standard', label: 'Standard — scheduled delivery' },
+  { value: 'expedited', label: 'Expedited — priority dispatch' },
+  { value: 'refrigerated', label: 'Refrigerated — cold-chain handling' },
+];
+
 const LOCATION_OPTIONS = [
   'Denver',
   'Salt Lake City',
@@ -25,6 +31,12 @@ const STATUS_LABELS = {
   optimized: 'Optimized',
   suboptimal: 'Suboptimal',
   requires_relay: 'Requires Relay',
+};
+
+const RISK_LABELS = {
+  on_track: 'On track',
+  monitor: 'Monitor',
+  attention: 'Attention',
 };
 
 function SystemStatus() {
@@ -70,6 +82,7 @@ export default function App() {
   const [origin, setOrigin] = useState('');
   const [destination, setDestination] = useState('');
   const [vehicleType, setVehicleType] = useState('van');
+  const [serviceLevel, setServiceLevel] = useState('standard');
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -81,7 +94,7 @@ export default function App() {
     setResult(null);
 
     try {
-      const data = await calculateRoute({ origin, destination, vehicleType });
+      const data = await calculateRoute({ origin, destination, vehicleType, serviceLevel });
       setResult(data);
     } catch (err) {
       setError(err.message);
@@ -173,6 +186,23 @@ export default function App() {
               </select>
             </label>
 
+            <label className="field">
+              <span className="field__label">Service level</span>
+              <select
+                className="field__input"
+                data-testid="service-level-select"
+                name="service_level"
+                value={serviceLevel}
+                onChange={(e) => setServiceLevel(e.target.value)}
+              >
+                {SERVICE_LEVEL_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
             <button className="button" data-testid="calculate-button" type="submit" disabled={loading}>
               {loading ? 'Calculating…' : 'Calculate Route'}
             </button>
@@ -209,9 +239,32 @@ export default function App() {
                 </div>
 
                 <div className="metric">
+                  <dt className="metric__label">Service level</dt>
+                  <dd className="metric__value" data-testid="result-service-level">
+                    {result.service_level_label}
+                  </dd>
+                </div>
+
+                <div className="metric">
+                  <dt className="metric__label">Delivery SLA</dt>
+                  <dd className="metric__value" data-testid="result-sla">
+                    {formatDuration(result.delivery_sla_minutes)}
+                  </dd>
+                </div>
+
+                <div className="metric">
                   <dt className="metric__label">Estimated duration</dt>
                   <dd className="metric__value" data-testid="result-duration">
                     {formatDuration(result.duration_minutes)}
+                  </dd>
+                </div>
+
+                <div className="metric">
+                  <dt className="metric__label">Dispatch risk</dt>
+                  <dd className="metric__value" data-testid="result-dispatch-risk">
+                    <span className={`badge badge--risk-${result.dispatch_risk}`}>
+                      {RISK_LABELS[result.dispatch_risk] || result.dispatch_risk}
+                    </span>
                   </dd>
                 </div>
 

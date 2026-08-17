@@ -5,11 +5,11 @@
  * the UI must fail loudly rather than silently rendering a blank field. That is
  * what makes a schema regression visible to the end-to-end test.
  */
-export async function calculateRoute({ origin, destination, vehicleType }) {
+export async function calculateRoute({ origin, destination, vehicleType, serviceLevel }) {
   const res = await fetch('/api/route', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ origin, destination, vehicle_type: vehicleType }),
+    body: JSON.stringify({ origin, destination, vehicle_type: vehicleType, service_level: serviceLevel }),
   });
 
   if (!res.ok) {

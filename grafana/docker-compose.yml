@@ -1,0 +1,57 @@
+# Local Grafana over Google Cloud Monitoring.
+#
+#   gmp-frontend  authenticates to Google with a service-account key and exposes
+#                 a plain Prometheus HTTP API on :9090
+#   grafana       a stock *Prometheus* datasource pointed at that proxy
+#
+# The proxy is what keeps the datasource generic: the dashboard queries are
+# ordinary PromQL, so the same JSON runs against any Prometheus — which is the
+# point when the target environment is somebody else's Grafana.
+
+name: fleetnet-grafana
+
+services:
+  gmp-frontend:
+    image: gke.gcr.io/prometheus-engine/frontend:v0.15.3-gke.0
+    command:
+      - --web.listen-address=:9090
+      - --query.project-id=${GCP_PROJECT:-warpdemo-505821}
+      - --query.credentials-file=/gcp/key.json
+    volumes:
+      # Path comes from grafana/.env (gitignored) so no key filename is tracked.
+      - ${GCP_KEY_FILE:-./gcp-key.json}:/gcp/key.json:ro
+    ports:
+      - "9090:9090" # exposed so you can curl the same API the agent uses
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana-oss:12.0.2
+    depends_on:
+      - gmp-frontend
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      # The dashboard's series colors are the light-mode steps of a validated
+      # palette. Grafana cannot theme series colors per mode, so the theme is
+      # pinned to match them rather than left to flip.
+      GF_USERS_DEFAULT_THEME: light
+      # Grafana 11.5+ pulls four app plugins (traces/metrics/logs/profiles
+      # drilldown) from the internet on every boot. Nothing here uses them, they
+      # need egress the demo shouldn't depend on, and they wedge the panel
+      # plugin loader on a cold cache.
+      GF_PLUGINS_PREINSTALL_DISABLED: "true"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_NEWS_NEWS_FEED_ENABLED: "false"
+    volumes:
+      - ./provisioning:/etc/grafana/provisioning:ro
+      - ./dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+volumes:
+  grafana-data:

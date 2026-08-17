@@ -14,6 +14,7 @@ test('@critical calculates and displays a route', async ({ page }) => {
   await page.getByTestId('origin-input').selectOption('Denver');
   await page.getByTestId('destination-input').selectOption('Salt Lake City');
   await page.getByTestId('vehicle-select').selectOption('van');
+  await page.getByTestId('service-level-select').selectOption('standard');
   await page.getByTestId('calculate-button').click();
 
   const results = page.getByTestId('route-results');
@@ -23,6 +24,9 @@ test('@critical calculates and displays a route', async ({ page }) => {
   await expect(page.getByTestId('result-distance')).toHaveText('312 mi');
   await expect(page.getByTestId('result-duration')).toHaveText('5h 38m');
   await expect(page.getByTestId('result-status')).toHaveText('Optimized');
+  await expect(page.getByTestId('result-service-level')).toHaveText('Standard');
+  await expect(page.getByTestId('result-sla')).toHaveText('8h 38m');
+  await expect(page.getByTestId('result-dispatch-risk')).toHaveText('On track');
 
   // A schema regression surfaces here rather than as a blank field.
   await expect(page.getByTestId('route-error')).toHaveCount(0);
@@ -40,6 +44,19 @@ test('@critical reflects vehicle type in the estimate', async ({ page }) => {
   await expect(page.getByTestId('result-distance')).toHaveText('312 mi');
   // 338 * 1.15 = 389 min -> "6h 29m".
   await expect(page.getByTestId('result-duration')).toHaveText('6h 29m');
+});
+
+test('@critical shows the expedited commitment without changing road time', async ({ page }) => {
+  await page.goto('/');
+
+  await page.getByTestId('origin-input').selectOption('Denver');
+  await page.getByTestId('destination-input').selectOption('Salt Lake City');
+  await page.getByTestId('service-level-select').selectOption('expedited');
+  await page.getByTestId('calculate-button').click();
+
+  await expect(page.getByTestId('result-duration')).toHaveText('5h 38m');
+  await expect(page.getByTestId('result-sla')).toHaveText('6h 23m');
+  await expect(page.getByTestId('result-dispatch-risk')).toHaveText('Monitor');
 });
 
 test('system status reports healthy', async ({ page }) => {

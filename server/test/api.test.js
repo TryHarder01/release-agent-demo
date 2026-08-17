@@ -85,4 +85,24 @@ describe('GET /metrics', () => {
     const res = await request(app).get('/metrics').expect(200);
     expect(res.body.route_latency_ms.count).toBe(0);
   });
+
+  it('exposes bounded dispatch dimensions in Prometheus format', async () => {
+    await request(app)
+      .post('/api/route')
+      .send({ origin: 'Denver', destination: 'Salt Lake City', vehicle_type: 'van' })
+      .expect(200);
+
+    const res = await request(app).get('/metrics/prometheus').expect(200);
+
+    expect(res.headers['content-type']).toContain('text/plain');
+    expect(res.text).toContain('# TYPE fleetnet_route_calculations_total counter');
+    expect(res.text).toContain('fleetnet_route_calculations_total{vehicle_type="van",service_level="standard",distance_band="local",traffic_band="light",status="optimized",dispatch_risk="on_track"} 1');
+    expect(res.text).toContain('fleetnet_route_distance_miles_total{vehicle_type="van",service_level="standard",distance_band="local",traffic_band="light",status="optimized",dispatch_risk="on_track"} 312');
+    expect(res.text).toContain('fleetnet_route_delay_configured_seconds 0');
+
+    const json = await request(app).get('/metrics').expect(200);
+    expect(json.body.dispatch_profiles).toHaveProperty(
+      'vehicle_type=van,service_level=standard,distance_band=local,traffic_band=light,status=optimized,dispatch_risk=on_track',
+    );
+  });
 });

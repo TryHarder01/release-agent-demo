@@ -36,6 +36,13 @@ export function createApp({ staticDir = DEFAULT_STATIC_DIR } = {}) {
     res.json({ version: RELEASE_VERSION, ...metrics.snapshot() });
   });
 
+  // Prometheus exposition is intentionally separate from /metrics: the release
+  // verifier consumes the JSON contract above, while GMP/Grafana can scrape
+  // richer, low-cardinality app dimensions from this endpoint.
+  app.get('/metrics/prometheus', (req, res) => {
+    res.type('text/plain; version=0.0.4; charset=utf-8').send(metrics.prometheus());
+  });
+
   // Lets the verifier zero the counters before a measurement run so p95 reflects
   // this candidate's traffic and not warm-up noise.
   app.post('/metrics/reset', (req, res) => {
@@ -51,6 +58,7 @@ export function createApp({ staticDir = DEFAULT_STATIC_DIR } = {}) {
 
     try {
       const result = calculateRoute(req.body);
+      metrics.recordRouteProfile(result);
       logJson({ severity: 'INFO', event: 'route_calculated', lane: result.lane, status: result.status });
       res.json(result);
     } catch (err) {

@@ -1,0 +1,455 @@
+{
+  "uid": "fleetnet-release",
+  "title": "FleetNet — Service Health & Release Context",
+  "description": "Cloud Run built-in metrics via the Cloud Monitoring PromQL API. The top two rows are an ordinary service-health dashboard. The bottom row is per-revision, which is what the release agent actually needs and what no default dashboard has.",
+  "tags": ["fleetnet", "cloud-run", "release"],
+  "timezone": "browser",
+  "editable": true,
+  "schemaVersion": 39,
+  "refresh": "30s",
+  "time": { "from": "now-3h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "service",
+        "label": "Cloud Run service",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "gmp" },
+        "query": {
+          "qryType": 1,
+          "query": "label_values({__name__=\"run.googleapis.com/request_count\"}, service_name)",
+          "refId": "service"
+        },
+        "refresh": 1,
+        "includeAll": false,
+        "multi": false,
+        "current": { "text": "fleetnet-route-planner", "value": "fleetnet-route-planner" }
+      },
+      {
+        "name": "budget_ms",
+        "label": "p95 budget (ms)",
+        "description": "POLICY_MAX_P95_MS from the release gate.",
+        "type": "constant",
+        "query": "750",
+        "current": { "text": "750", "value": "750" },
+        "hide": 2
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "row",
+      "id": 100,
+      "title": "Service health — what a platform team already has",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "id": 1,
+      "title": "Request rate",
+      "datasource": { "type": "prometheus", "uid": "gmp" },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 1 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate({__name__=\"run.googleapis.com/request_count\", service_name=\"$service\"}[$__rate_interval]))"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "decimals": 2,
+          "color": { "mode": "fixed", "fixedColor": "#2a78d6" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "#2a78d6", "value": null }] }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto",
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "type": "stat",
+      "id": 2,
+      "title": "Error rate (5xx)",
+      "description": "Only 5xx counts. A 400 from a bad request is the API working correctly. Release budget: < 1%.",
+      "datasource": { "type": "prometheus", "uid": "gmp" },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 1 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(sum(rate({__name__=\"run.googleapis.com/request_count\", service_name=\"$service\", response_code_class=\"5xx\"}[$__rate_interval])) or vector(0)) / clamp_min(sum(rate({__name__=\"run.googleapis.com/request_count\", service_name=\"$service\"}[$__rate_interval])), 1e-9)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 2,
+          "min": 0,
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "#0ca30c", "value": null },
+              { "color": "#d03b3b", "value": 0.01 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto",
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "type": "stat",
+      "id": 3,
+      "title": "p95 latency",
+      "description": "Cloud Run edge-to-edge latency across ALL paths, including static assets. This is not the same number as the gate's in-process route_latency_ms.",
+      "datasource": { "type": "prometheus", "uid": "gmp" },
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 1 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate({__name__=\"run.googleapis.com/request_latencies_bucket\", service_name=\"$service\"}[$__rate_interval])))"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "decimals": 0,
+          "min": 0,
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "#0ca30c", "value": null },
+              { "color": "#d03b3b", "value": 750 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto",
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "type": "stat",
+      "id": 4,
+      "title": "Requests in window",
+      "description": "Total over the selected range. Cloud Run's container/instance_count would be the more natural fourth tile, but it reports nothing for a scale-to-zero service; it only populates once a revision holds instances (deploy.sh sets --min-instances 1).",
+      "datasource": { "type": "prometheus", "uid": "gmp" },
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 1 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(increase({__name__=\"run.googleapis.com/request_count\", service_name=\"$service\"}[$__range]))"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": { "mode": "fixed", "fixedColor": "#2a78d6" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "#2a78d6", "value": null }] }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto",
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "type": "timeseries",
+      "id": 5,
+      "title": "Requests by response class",
+      "datasource": { "type": "prometheus", "uid": "gmp" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 5 },
+      "targets": [
+        {
+          "refId": "A",
+          "legendFormat": "{{response_code_class}}",
+          "expr": "sum by (response_code_class) (rate({__name__=\"run.googleapis.com/request_count\", service_name=\"$service\"}[$__rate_interval]))"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "pointSize": 8,
+            "spanNulls": false,
+            "axisBorderShow": false,
+            "gradientMode": "none"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "2xx" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#0ca30c" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "3xx" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#8a8a80" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "4xx" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#fab219" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "5xx" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#d03b3b" } }]
+          }
+        ]
+      },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["lastNotNull"] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      }
+    },
+    {
+      "type": "timeseries",
+      "id": 6,
+      "title": "Latency percentiles",
+      "description": "One measure at increasing magnitude, so one hue light-to-dark rather than three identities.",
+      "datasource": { "type": "prometheus", "uid": "gmp" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 5 },
+      "targets": [
+        {
+          "refId": "A",
+          "legendFormat": "p50",
+          "expr": "histogram_quantile(0.50, sum by (le) (rate({__name__=\"run.googleapis.com/request_latencies_bucket\", service_name=\"$service\"}[$__rate_interval])))"
+        },
+        {
+          "refId": "B",
+          "legendFormat": "p95",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate({__name__=\"run.googleapis.com/request_latencies_bucket\", service_name=\"$service\"}[$__rate_interval])))"
+        },
+        {
+          "refId": "C",
+          "legendFormat": "p99",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate({__name__=\"run.googleapis.com/request_latencies_bucket\", service_name=\"$service\"}[$__rate_interval])))"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "pointSize": 8,
+            "spanNulls": false,
+            "axisBorderShow": false,
+            "gradientMode": "none"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "p50" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#86b6ef" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "p95" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#2a78d6" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "p99" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#104281" } }]
+          }
+        ]
+      },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["lastNotNull"] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      }
+    },
+    {
+      "type": "row",
+      "id": 101,
+      "title": "Release context — per-revision evidence for the release brief",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 13 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "id": 7,
+      "title": "p95 latency by revision",
+      "description": "Candidate vs. currently-serving context for the release brief. The dashed line is the gate's p95 budget; this independent, edge-to-edge signal corroborates the controlled in-process gate measurement rather than replacing it.",
+      "datasource": { "type": "prometheus", "uid": "gmp" },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 14 },
+      "targets": [
+        {
+          "refId": "A",
+          "legendFormat": "{{revision_name}}",
+          "expr": "histogram_quantile(0.95, sum by (revision_name, le) (rate({__name__=\"run.googleapis.com/request_latencies_bucket\", service_name=\"$service\"}[$__rate_interval])))"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "min": 0,
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "pointSize": 8,
+            "spanNulls": false,
+            "axisBorderShow": false,
+            "axisSoftMax": 800,
+            "gradientMode": "none",
+            "thresholdsStyle": { "mode": "dashed" }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "transparent", "value": null },
+              { "color": "#d03b3b", "value": 750 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["lastNotNull", "max"] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      }
+    },
+    {
+      "type": "table",
+      "id": 8,
+      "title": "Revision comparison",
+      "description": "The baseline the brief cites: is this candidate a regression, or has the threshold been marginal all along?",
+      "datasource": { "type": "prometheus", "uid": "gmp" },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 14 },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "instant": true,
+          "expr": "histogram_quantile(0.95, sum by (revision_name, le) (rate({__name__=\"run.googleapis.com/request_latencies_bucket\", service_name=\"$service\"}[$__range])))"
+        },
+        {
+          "refId": "B",
+          "format": "table",
+          "instant": true,
+          "expr": "sum by (revision_name) (increase({__name__=\"run.googleapis.com/request_count\", service_name=\"$service\"}[$__range]))"
+        },
+        {
+          "refId": "C",
+          "format": "table",
+          "instant": true,
+          "expr": "(sum by (revision_name) (increase({__name__=\"run.googleapis.com/request_count\", service_name=\"$service\", response_code_class=\"5xx\"}[$__range])) or (sum by (revision_name) (increase({__name__=\"run.googleapis.com/request_count\", service_name=\"$service\"}[$__range])) * 0)) / clamp_min(sum by (revision_name) (increase({__name__=\"run.googleapis.com/request_count\", service_name=\"$service\"}[$__range])), 1e-9)"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "joinByField",
+          "options": { "byField": "revision_name", "mode": "outer" }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": { "Time": true, "Time 1": true, "Time 2": true, "Time 3": true },
+            "renameByName": {
+              "revision_name": "Revision",
+              "Value #A": "p95 (ms)",
+              "Value #B": "Requests",
+              "Value #C": "Error rate"
+            },
+            "indexByName": {}
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "align": "auto", "cellOptions": { "type": "auto" } }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "p95 (ms)" },
+            "properties": [
+              { "id": "unit", "value": "ms" },
+              { "id": "decimals", "value": 0 },
+              { "id": "custom.width", "value": 100 },
+              {
+                "id": "custom.cellOptions",
+                "value": { "type": "color-text" }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    { "color": "#0ca30c", "value": null },
+                    { "color": "#d03b3b", "value": 750 }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Error rate" },
+            "properties": [
+              { "id": "unit", "value": "percentunit" },
+              { "id": "decimals", "value": 2 },
+              { "id": "custom.width", "value": 105 },
+              { "id": "custom.cellOptions", "value": { "type": "color-text" } },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    { "color": "#0ca30c", "value": null },
+                    { "color": "#d03b3b", "value": 0.01 }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Requests" },
+            "properties": [
+              { "id": "decimals", "value": 0 },
+              { "id": "custom.width", "value": 95 }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": { "show": false, "reducer": ["sum"], "countRows": false, "fields": "" },
+        "sortBy": [{ "displayName": "Revision", "desc": true }]
+      }
+    }
+  ]
+}

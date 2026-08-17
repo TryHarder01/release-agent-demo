@@ -486,6 +486,21 @@ select.field__input {
   color: var(--danger);
 }
 
+.badge--risk-on_track {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
+.badge--risk-monitor {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+.badge--risk-attention {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
 /* Responsive -------------------------------------------------------------- */
 @media (max-width: 640px) {
   .app {

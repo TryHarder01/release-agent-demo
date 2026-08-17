@@ -1,0 +1,19 @@
+apiVersion: 1
+
+# A stock Prometheus datasource. Auth to Google happens in the gmp-frontend
+# proxy, not here — so nothing in this file is GCP-specific, and pointing it at
+# a different Prometheus is a one-line change.
+datasources:
+  - name: GCM
+    uid: gmp
+    type: prometheus
+    access: proxy
+    url: http://gmp-frontend:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      httpMethod: GET
+      # Cloud Run system metrics are written at 60s. Asking for finer steps
+      # returns staircases, not detail.
+      timeInterval: 60s
+      prometheusType: Prometheus

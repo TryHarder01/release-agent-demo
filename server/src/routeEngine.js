@@ -2,12 +2,22 @@
 // the same origin/destination/vehicle always produces the same numbers.
 
 export const VEHICLE_TYPES = ['van', 'box_truck', 'semi'];
+export const SERVICE_LEVELS = ['standard', 'expedited', 'refrigerated'];
 
 // Heavier vehicles are slower over the same distance.
 const VEHICLE_DURATION_MULTIPLIER = {
   van: 1.0,
   box_truck: 1.08,
   semi: 1.15,
+};
+
+// Service level changes the operational commitment, not the deterministic road
+// time. Keeping those concepts separate lets the UI expose a realistic dispatch
+// choice without making the core route estimate surprising or non-repeatable.
+const SERVICE_LEVEL_POLICY = {
+  standard: { label: 'Standard', dispatchBufferMinutes: 180 },
+  expedited: { label: 'Expedited', dispatchBufferMinutes: 45 },
+  refrigerated: { label: 'Refrigerated', dispatchBufferMinutes: 90 },
 };
 
 // Hand-seeded lanes so the demo shows plausible numbers for real city pairs.
@@ -56,6 +66,12 @@ function statusFor(distance) {
   return 'optimized';
 }
 
+function dispatchRiskFor(status, serviceLevel) {
+  if (status === 'requires_relay') return 'attention';
+  if (status === 'suboptimal' || serviceLevel === 'expedited') return 'monitor';
+  return 'on_track';
+}
+
 export class ValidationError extends Error {
   constructor(message) {
     super(message);
@@ -64,28 +80,39 @@ export class ValidationError extends Error {
 }
 
 /**
- * @param {{origin: string, destination: string, vehicle_type?: string}} input
- * @returns {{distance_miles: number, duration_minutes: number, status: string, vehicle_type: string, lane: string}}
+ * @param {{origin: string, destination: string, vehicle_type?: string, service_level?: string}} input
+ * @returns {{distance_miles: number, duration_minutes: number, status: string, vehicle_type: string, service_level: string, service_level_label: string, delivery_sla_minutes: number, dispatch_risk: string, lane: string}}
  */
 export function calculateRoute(input) {
   const origin = String(input?.origin ?? '').trim();
   const destination = String(input?.destination ?? '').trim();
   const vehicleType = String(input?.vehicle_type ?? 'van').trim() || 'van';
+  const serviceLevel = String(input?.service_level ?? 'standard').trim() || 'standard';
 
   if (!origin) throw new ValidationError('origin is required');
   if (!destination) throw new ValidationError('destination is required');
   if (!VEHICLE_TYPES.includes(vehicleType)) {
     throw new ValidationError(`vehicle_type must be one of: ${VEHICLE_TYPES.join(', ')}`);
   }
+  if (!SERVICE_LEVELS.includes(serviceLevel)) {
+    throw new ValidationError(`service_level must be one of: ${SERVICE_LEVELS.join(', ')}`);
+  }
 
   const lane = baseLane(origin, destination);
   const multiplier = VEHICLE_DURATION_MULTIPLIER[vehicleType];
+  const durationMinutes = Math.round(lane.duration * multiplier);
+  const status = statusFor(lane.distance);
+  const servicePolicy = SERVICE_LEVEL_POLICY[serviceLevel];
 
   return {
     distance_miles: lane.distance,
-    duration_minutes: Math.round(lane.duration * multiplier),
-    status: statusFor(lane.distance),
+    duration_minutes: durationMinutes,
+    status,
     vehicle_type: vehicleType,
+    service_level: serviceLevel,
+    service_level_label: servicePolicy.label,
+    delivery_sla_minutes: durationMinutes + servicePolicy.dispatchBufferMinutes,
+    dispatch_risk: dispatchRiskFor(status, serviceLevel),
     lane: `${origin} → ${destination}`,
   };
 }

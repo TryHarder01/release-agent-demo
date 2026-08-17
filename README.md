@@ -44,8 +44,8 @@ Verdict
 
 ## What it does
 
-Enter an origin, a destination, and a vehicle type; get back distance, duration,
-and a route status. Routing is **fake and fully deterministic** — the same inputs
+Enter an origin, a destination, a vehicle type, and a service level; get back distance,
+duration, a delivery commitment, and a route status. Routing is **fake and fully deterministic** — the same inputs
 always produce the same numbers, which is what makes the end-to-end tests exact
 rather than approximate.
 
@@ -60,12 +60,13 @@ Lanes outside the seeded table get stable pseudo-values from a string hash.
 | `POST /api/route` | Calculate a route |
 | `GET /health` | Liveness + running version |
 | `GET /metrics` | Request count, error rate, route latency percentiles |
+| `GET /metrics/prometheus` | Bounded dispatch-profile metrics for Prometheus/GMP |
 | `POST /metrics/reset` | Zero the counters before a measurement run |
 
 ```bash
 curl -s localhost:8080/api/route \
   -H 'Content-Type: application/json' \
-  -d '{"origin":"Denver","destination":"Salt Lake City","vehicle_type":"van"}'
+  -d '{"origin":"Denver","destination":"Salt Lake City","vehicle_type":"van","service_level":"standard"}'
 ```
 
 ```json
@@ -74,6 +75,10 @@ curl -s localhost:8080/api/route \
   "duration_minutes": 338,
   "status": "optimized",
   "vehicle_type": "van",
+  "service_level": "standard",
+  "service_level_label": "Standard",
+  "delivery_sla_minutes": 518,
+  "dispatch_risk": "on_track",
   "lane": "Denver → Salt Lake City"
 }
 ```
