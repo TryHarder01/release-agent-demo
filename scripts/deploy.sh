@@ -61,7 +61,7 @@ PROD_URL="$(gcloud run services describe "${SERVICE}" \
 CANDIDATE_REVISION="$(gcloud run services describe "${SERVICE}" \
   --project "${GCP_PROJECT}" \
   --region "${GCP_REGION}" \
-  --format="value(status.traffic.filter(\"tag:${CANDIDATE_TAG}\").extract(revisionName))" | tr -d '[]')"
+  --format="value(status.traffic.filter(\"tag:${CANDIDATE_TAG}\").extract(revisionName))" | tr -d "[]'")"
 : "${CANDIDATE_REVISION:?Could not determine the candidate revision}"
 
 echo ""
