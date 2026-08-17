@@ -11,3 +11,6 @@ release-report.json
 .env.local
 *.log
 .DS_Store
+
+# Per-developer agent config. The shared instructions and skills are tracked.
+.claude/settings.local.json
