@@ -32,7 +32,7 @@ jobs:
         run: npm run build
 
       - name: Build container image
-        run: docker build -t vantage-route-planner:ci .
+        run: docker build -t fleetnet-route-planner:ci .
 
   preview:
     name: Visual preview
@@ -58,10 +58,10 @@ jobs:
 
       - name: Run the container
         run: |
-          docker build -t vantage-route-planner:pr .
-          docker run -d --name vantage-pr -p 8080:8080 \
+          docker build -t fleetnet-route-planner:pr .
+          docker run -d --name fleetnet-pr -p 8080:8080 \
             -e RELEASE_VERSION=${GITHUB_SHA::7} \
-            vantage-route-planner:pr
+            fleetnet-route-planner:pr
           for _ in $(seq 1 30); do
             curl -fsS http://localhost:8080/health >/dev/null 2>&1 && break
             sleep 1
@@ -116,4 +116,4 @@ jobs:
 
       - name: Tear down
         if: always()
-        run: docker rm -f vantage-pr || true
+        run: docker rm -f fleetnet-pr || true

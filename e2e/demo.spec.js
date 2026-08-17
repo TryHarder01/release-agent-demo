@@ -19,7 +19,7 @@ test('route planner walkthrough', async ({ page }) => {
   await page.goto('/');
 
   // Let the viewer take in the empty state and the health indicator.
-  await expect(page.getByRole('heading', { name: 'Vantage Route Planner' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'FleetNet' })).toBeVisible();
   await expect(page.getByTestId('system-status')).toHaveAttribute('data-state', 'ok');
   await page.waitForTimeout(HOLD);
 

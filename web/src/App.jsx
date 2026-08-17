@@ -78,10 +78,15 @@ export default function App() {
       <header className="header">
         <div className="header__brand">
           <span className="header__mark" aria-hidden="true">
-            ▲
+            {/* Two waypoints joined by a routed path. */}
+            <svg viewBox="0 0 24 24" focusable="false">
+              <path d="M6 7.2v3.05A3.5 3.5 0 0 0 9.5 13.75h5A3.5 3.5 0 0 1 18 17.25" />
+              <circle cx="6" cy="5" r="2" />
+              <circle cx="18" cy="19.25" r="2" />
+            </svg>
           </span>
           <div>
-            <h1 className="header__title">Vantage Route Planner</h1>
+            <h1 className="header__title">FleetNet</h1>
             <p className="header__subtitle">Fleet dispatch &amp; lane optimization</p>
           </div>
         </div>
