@@ -8,6 +8,19 @@ const VEHICLE_OPTIONS = [
   { value: 'semi', label: 'Semi Trailer' },
 ];
 
+const LOCATION_OPTIONS = [
+  'Denver',
+  'Salt Lake City',
+  'Phoenix',
+  'Las Vegas',
+  'Dallas',
+  'Houston',
+  'Chicago',
+  'Kansas City',
+  'Los Angeles',
+  'San Francisco',
+];
+
 const STATUS_LABELS = {
   optimized: 'Optimized',
   suboptimal: 'Suboptimal',
@@ -45,8 +58,8 @@ function SystemStatus() {
       <span className={`status-dot status-dot--${health.state}`} aria-hidden="true" />
       <span>{label}</span>
       {health.version ? (
-        <span className="system-status__version" title={`Artifact Registry tag: git-${health.version}`}>
-          image git-{health.version}
+        <span className="system-status__version" data-testid="release-version" title={`Deployed commit: ${health.version}`}>
+          commit {health.version}
         </span>
       ) : null}
     </div>
@@ -101,6 +114,12 @@ export default function App() {
         <section className="panel">
           <h2 className="panel__title">Plan a lane</h2>
           <form onSubmit={onSubmit}>
+            <datalist id="location-options">
+              {LOCATION_OPTIONS.map((location) => (
+                <option key={location} value={location} />
+              ))}
+            </datalist>
+
             <label className="field">
               <span className="field__label">Origin</span>
               <input
@@ -109,6 +128,7 @@ export default function App() {
                 name="origin"
                 placeholder="Denver"
                 required
+                list="location-options"
                 value={origin}
                 onChange={(e) => setOrigin(e.target.value)}
               />
@@ -122,6 +142,7 @@ export default function App() {
                 name="destination"
                 placeholder="Salt Lake City"
                 required
+                list="location-options"
                 value={destination}
                 onChange={(e) => setDestination(e.target.value)}
               />
