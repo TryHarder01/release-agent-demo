@@ -41,13 +41,14 @@ The identity CI uses is a separate concern — service account, IAM roles,
 Workload Identity Federation, and the registry are all in
 [gcp-setup.md](gcp-setup.md).
 
-`deploy.sh` uses `gcloud run deploy --source .`, which hands the Dockerfile to
-Cloud Build — no local Docker or registry wrangling needed.
+CI builds the container once and pushes it to Artifact Registry. `deploy.sh`
+deploys that existing image; it never rebuilds source during release.
 
 ## Deploy a candidate
 
 ```bash
 export GCP_PROJECT=warpdemo-505821
+export IMAGE_REF=northamerica-northeast1-docker.pkg.dev/warpdemo-505821/warpdemo/fleetnet-route-planner:git-<full-commit-sha>
 ./scripts/deploy.sh
 ```
 
@@ -60,7 +61,7 @@ This deploys at **0% traffic** with the tag `candidate` and prints two URLs:
 
 ```bash
 BASE_URL=<candidate url> npm run verify   # 0 = PROMOTE, 1 = STOP, 2 = NEEDS_REVIEW
-./scripts/promote.sh                      # only after a PROMOTE verdict
+./scripts/promote.sh <candidate-revision> # only after a PROMOTE verdict
 ```
 
 Rollback to a specific revision:
@@ -84,9 +85,8 @@ needs are:
 | Secret | `GCP_WIF_PROVIDER` | `projects/638332938882/locations/global/workloadIdentityPools/github/providers/github` |
 | Secret | `GCP_SERVICE_ACCOUNT` | `warpdemogha@warpdemo-505821.iam.gserviceaccount.com` |
 
-The deploying service account needs `roles/run.admin`,
-`roles/cloudbuild.builds.editor`, `roles/artifactregistry.writer`, and
-`roles/iam.serviceAccountUser`.
+The GitHub Actions service account needs `roles/run.admin`,
+`roles/artifactregistry.writer`, and `roles/iam.serviceAccountUser`.
 
 `ci.yml`'s `push` job uses the same two secrets to publish the merged image to
 Artifact Registry on every push to `main`:
@@ -95,15 +95,15 @@ Artifact Registry on every push to `main`:
 northamerica-northeast1-docker.pkg.dev/warpdemo-505821/warpdemo/fleetnet-route-planner
 ```
 
-Tagged `sha-<short-sha>` and `latest`, built for `linux/amd64`, with the layer
-cache in GitHub Actions. No semver — nothing is released from a git tag here, so
-the commit sha is the only identity worth having. It runs only after the test job passes, and only on
-`main` — pull requests build the image but never push it.
+Tagged `git-<full-commit-sha>` and `latest`, built for `linux/amd64`, with the
+layer cache in GitHub Actions. No semver — the commit SHA is the immutable
+artifact identity. It runs only after the test job passes, and only on `main` —
+pull requests build the image but never push it.
 
-That image is a registry copy, **not** the release artifact. `release.yml` still
-builds its own candidate through Cloud Build and verifies that. Nothing consumes
-the pushed image yet; wiring `deploy.sh` to `--image` would make the verified
-artifact and the published artifact the same thing, which they currently are not.
+That image is not yet a release. `release.yml` deploys the matching
+`git-<full-commit-sha>` image at 0% traffic, verifies that candidate revision,
+and only then shifts traffic to that exact revision. The image CI built is the
+image the release gate verifies.
 
 Create the repo once if it does not exist:
 

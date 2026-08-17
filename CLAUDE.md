@@ -111,10 +111,9 @@ destroy the thing this repo exists to demonstrate.
 single PR comment with the artifact link.
 
 `ci.yml`'s `push` job publishes the merged image to Artifact Registry on `main`.
-It is a registry copy, not a release — `release.yml` still builds its own
-candidate via Cloud Build and verifies that. A pushed image has passed unit tests
-and nothing else, so do not treat its existence as evidence a build is
-promotable.
+It is not a release — `release.yml` deploys that commit-addressed image as a
+0%-traffic candidate and verifies it. A pushed image has passed unit tests and
+nothing else, so do not treat its existence as evidence a build is promotable.
 
 ### Deploy / promote
 

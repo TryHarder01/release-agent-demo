@@ -3,7 +3,7 @@
 # Promote the verified candidate revision to 100% of production traffic.
 # This is the action a release agent takes only after a PROMOTE verdict.
 #
-#   ./scripts/promote.sh
+#   ./scripts/promote.sh <candidate-revision>
 #
 # To roll back instead, pass a known-good revision:
 #   ./scripts/promote.sh vantage-route-planner-00007-abc
@@ -23,12 +23,8 @@ if [[ -n "${TARGET_REVISION}" ]]; then
     --to-revisions "${TARGET_REVISION}=100" \
     --quiet
 else
-  echo "==> Promoting latest revision to 100% traffic"
-  gcloud run services update-traffic "${SERVICE}" \
-    --project "${GCP_PROJECT}" \
-    --region "${GCP_REGION}" \
-    --to-latest \
-    --quiet
+  echo "A target revision is required; refusing to promote an unspecified latest revision." >&2
+  exit 2
 fi
 
 gcloud run services describe "${SERVICE}" \

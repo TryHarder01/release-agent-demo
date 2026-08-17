@@ -43,7 +43,6 @@ gcloud config set project $PROJECT_ID
 
 gcloud services enable \
   run.googleapis.com \
-  cloudbuild.googleapis.com \
   artifactregistry.googleapis.com \
   iamcredentials.googleapis.com \
   sts.googleapis.com
@@ -58,8 +57,8 @@ error that points at neither.
 ```bash
 gcloud iam service-accounts create warpdemogha --display-name="GitHub Actions"
 
-for role in roles/run.admin roles/cloudbuild.builds.editor \
-            roles/artifactregistry.writer roles/iam.serviceAccountUser; do
+for role in roles/run.admin roles/artifactregistry.writer \
+            roles/iam.serviceAccountUser; do
   gcloud projects add-iam-policy-binding $PROJECT_ID \
     --member="serviceAccount:$SA_EMAIL" --role="$role" --condition=None
 done
@@ -69,7 +68,6 @@ done
 | --- | --- |
 | `roles/artifactregistry.writer` | `ci.yml` push job |
 | `roles/run.admin` | `deploy.sh`, `promote.sh` |
-| `roles/cloudbuild.builds.editor` | `deploy.sh` — `--source .` builds through Cloud Build |
 | `roles/iam.serviceAccountUser` | deploying a revision that runs as a service account |
 
 ### Workload Identity Federation
@@ -169,10 +167,9 @@ latency, and p95 latency is one of the four release gate checks — a
 configuration mistake would surface as a `NEEDS_REVIEW` verdict and read as an
 application regression.
 
-**Cloud Build has its own service agent.** `deploy.sh` uses
-`gcloud run deploy --source .`, which builds through Cloud Build rather than as
-the Actions service account. If deploys fail on a permission that none of the
-four roles above explain, that agent is where to look.
+**The release deploys an existing Artifact Registry image.** CI builds the image
+and release deploys the commit-addressed `git-<full-commit-sha>` tag, so this
+flow does not use Cloud Build or require `roles/cloudbuild.builds.editor`.
 
 ## Local gcloud
 

@@ -44,7 +44,11 @@ function SystemStatus() {
     <div className="system-status" data-testid="system-status" data-state={health.state}>
       <span className={`status-dot status-dot--${health.state}`} aria-hidden="true" />
       <span>{label}</span>
-      {health.version ? <span className="system-status__version">build {health.version}</span> : null}
+      {health.version ? (
+        <span className="system-status__version" title={`Artifact Registry tag: git-${health.version}`}>
+          image git-{health.version}
+        </span>
+      ) : null}
     </div>
   );
 }

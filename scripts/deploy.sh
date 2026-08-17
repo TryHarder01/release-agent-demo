@@ -2,7 +2,7 @@
 #
 # Deploy a candidate revision to Cloud Run WITHOUT sending it production traffic.
 #
-#   ./scripts/deploy.sh
+#   IMAGE_REF=northamerica-northeast1-docker.pkg.dev/warpdemo-505821/warpdemo/fleetnet-route-planner:git-<commit-sha> ./scripts/deploy.sh
 #
 # The revision gets its own stable tagged URL, which is what Playwright and the
 # release verifier run against. Production keeps serving the previous revision
@@ -13,6 +13,7 @@
 #   GCP_REGION      default northamerica-northeast1
 #   SERVICE         default vantage-route-planner
 #   CANDIDATE_TAG   default candidate
+#   IMAGE_REF       required — immutable CI-built Artifact Registry image tag or digest
 #   ROUTE_DELAY_MS  default 0 — set to 2500 to simulate the latency regression
 
 set -euo pipefail
@@ -23,13 +24,15 @@ SERVICE="${SERVICE:-vantage-route-planner}"
 CANDIDATE_TAG="${CANDIDATE_TAG:-candidate}"
 ROUTE_DELAY_MS="${ROUTE_DELAY_MS:-0}"
 RELEASE_VERSION="${RELEASE_VERSION:-$(git rev-parse --short HEAD 2>/dev/null || echo dev)}"
+IMAGE_REF="${IMAGE_REF:?IMAGE_REF must identify the CI-built Artifact Registry image to deploy}"
 
 echo "==> Deploying candidate"
 echo "    project=${GCP_PROJECT} region=${GCP_REGION} service=${SERVICE}"
 echo "    version=${RELEASE_VERSION} route_delay_ms=${ROUTE_DELAY_MS}"
+echo "    image=${IMAGE_REF}"
 
 gcloud run deploy "${SERVICE}" \
-  --source . \
+  --image "${IMAGE_REF}" \
   --project "${GCP_PROJECT}" \
   --region "${GCP_REGION}" \
   --platform managed \
@@ -54,9 +57,16 @@ PROD_URL="$(gcloud run services describe "${SERVICE}" \
   --region "${GCP_REGION}" \
   --format='value(status.url)')"
 
+CANDIDATE_REVISION="$(gcloud run services describe "${SERVICE}" \
+  --project "${GCP_PROJECT}" \
+  --region "${GCP_REGION}" \
+  --format="value(status.traffic.filter(\"tag:${CANDIDATE_TAG}\").extract(revisionName))" | tr -d '[]')"
+: "${CANDIDATE_REVISION:?Could not determine the candidate revision}"
+
 echo ""
 echo "==> Candidate deployed (0% traffic)"
 echo "    candidate url : ${CANDIDATE_URL}"
+echo "    candidate revision: ${CANDIDATE_REVISION}"
 echo "    production url: ${PROD_URL}"
 echo ""
 echo "Next: BASE_URL=${CANDIDATE_URL} npm run verify"
@@ -65,6 +75,7 @@ echo "Next: BASE_URL=${CANDIDATE_URL} npm run verify"
 if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
   {
     echo "candidate_url=${CANDIDATE_URL}"
+    echo "candidate_revision=${CANDIDATE_REVISION}"
     echo "production_url=${PROD_URL}"
   } >>"${GITHUB_OUTPUT}"
 fi

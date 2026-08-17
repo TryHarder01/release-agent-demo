@@ -131,9 +131,9 @@ serving the previous revision until something explicitly promotes:
 ```bash
 export GCP_PROJECT=warpdemo-505821
 
-./scripts/deploy.sh                        # candidate at 0% traffic, prints its URL
+IMAGE_REF=<registry image>:git-<full-sha> ./scripts/deploy.sh # candidate at 0% traffic
 BASE_URL=<candidate url> npm run verify    # 0 PROMOTE / 1 STOP / 2 NEEDS_REVIEW
-./scripts/promote.sh                       # 100% traffic — only after PROMOTE
+./scripts/promote.sh <candidate-revision>  # 100% traffic — only after PROMOTE
 ./scripts/promote.sh <revision>            # or roll back
 ```
 

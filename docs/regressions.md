@@ -87,7 +87,7 @@ The plumbing already exists on `main`: `server/src/app.js` honours
 **Option 1 — config-only (no code change).** Deploy with the env var set:
 
 ```bash
-ROUTE_DELAY_MS=2500 ./scripts/deploy.sh
+ROUTE_DELAY_MS=2500 IMAGE_REF=<registry image>:git-<full-sha> ./scripts/deploy.sh
 # or from CI:
 gh workflow run release.yml -f route_delay_ms=2500
 ```

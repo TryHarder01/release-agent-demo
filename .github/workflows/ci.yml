@@ -38,10 +38,9 @@ jobs:
       - name: Build container image
         run: docker build -t fleetnet-route-planner:ci .
 
-  # Publishes the merged image to Artifact Registry. This is a registry copy,
-  # not a release: release.yml still builds its own candidate via Cloud Build
-  # (`gcloud run deploy --source .`) and verifies that. Pushing here does not
-  # promote anything and does not make a green CI sufficient to ship.
+  # Publishes the merged image that release.yml later deploys as a 0%-traffic
+  # candidate. Pushing is not a release: verification still decides whether
+  # the candidate revision may receive production traffic.
   push:
     name: Push image to Artifact Registry
     runs-on: ubuntu-latest
@@ -75,11 +74,10 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.IMAGE }}
-          # sha-<short> is the durable identity; latest is a convenience pointer.
-          # Deliberately not semver — nothing here is versioned or released from
-          # a tag, and a scheme nothing consumes is just upkeep.
+          # The full commit SHA identifies the deployable artifact. `latest` is
+          # a convenience pointer only; no deployment is allowed to use it.
           tags: |
-            type=sha
+            type=raw,value=git-${{ github.sha }}
             type=raw,value=latest
 
       # Cloud Run is amd64. GitHub runners are too, so this is a native build,
@@ -105,9 +103,9 @@ jobs:
             echo "${{ env.IMAGE }}@${{ steps.build.outputs.digest }}"
             echo '```'
             echo ""
-            echo "Tagged \`sha-${GITHUB_SHA::7}\` and \`latest\`."
+            echo "Tagged \`git-${GITHUB_SHA}\` and \`latest\`."
             echo ""
-            echo "> Not a release. Deploy and verification happen in release.yml."
+            echo "> Not a release. release.yml deploys \`git-${GITHUB_SHA}\` as a candidate, then verifies it."
           } >> "$GITHUB_STEP_SUMMARY"
 
   preview:
