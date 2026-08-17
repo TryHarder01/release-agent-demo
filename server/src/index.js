@@ -10,7 +10,8 @@ app.listen(port, '0.0.0.0', () => {
       severity: 'INFO',
       event: 'server_started',
       port,
-      version: process.env.RELEASE_VERSION || 'dev',
+      release_id: (process.env.RELEASE_VERSION || 'dev').slice(0, 7),
+      image_tag: process.env.IMAGE_TAG || 'local',
       route_delay_ms: Number(process.env.ROUTE_DELAY_MS || 0),
     })}\n`,
   );

@@ -62,6 +62,9 @@ count, and error rate. `scripts/deploy.sh` already writes `candidate_revision` t
 `GITHUB_OUTPUT`, so this row is the candidate-vs-serving comparison the release
 brief cites. It is independent corroborating evidence for the brief, not a
 current input to the gate or a substitute for Oz's bounded release decision.
+New candidates are named `fleetnet-route-planner-git-<short-sha>`: the suffix is
+derived from the immutable `git-<full-sha>` image tag, and the same short SHA is
+shown in FleetNet's header and `/health` response.
 
 **Observability Firehose** — a companion dashboard deliberately filled with
 request, response-class, revision, and percentile slices drawn from the exact

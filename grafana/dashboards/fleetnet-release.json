@@ -292,7 +292,7 @@
     {
       "type": "row",
       "id": 101,
-      "title": "Release context — per-revision evidence for the release brief",
+      "title": "Release context — image-tagged revision evidence for the release brief",
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 13 },
       "collapsed": false,
       "panels": []
@@ -301,7 +301,7 @@
       "type": "timeseries",
       "id": 7,
       "title": "p95 latency by revision",
-      "description": "Candidate vs. currently-serving context for the release brief. The dashed line is the gate's p95 budget; this independent, edge-to-edge signal corroborates the controlled in-process gate measurement rather than replacing it.",
+      "description": "Candidate vs. currently-serving context for the release brief. New revisions end in git-<short SHA>, derived from the immutable image tag shown in the app. The dashed line is the gate's p95 budget; this independent, edge-to-edge signal corroborates the controlled in-process gate measurement rather than replacing it.",
       "datasource": { "type": "prometheus", "uid": "gmp" },
       "gridPos": { "h": 9, "w": 12, "x": 0, "y": 14 },
       "targets": [

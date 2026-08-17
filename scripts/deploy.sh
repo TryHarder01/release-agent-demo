@@ -13,7 +13,7 @@
 #   GCP_REGION      default northamerica-northeast1
 #   SERVICE         default fleetnet-route-planner
 #   CANDIDATE_TAG   default candidate
-#   IMAGE_REF       required — immutable CI-built Artifact Registry image tag or digest
+#   IMAGE_REF       required — immutable CI-built `git-<full-sha>` image tag
 #   ROUTE_DELAY_MS  default 0 — set to 2500 to simulate the latency regression
 
 set -euo pipefail
@@ -25,10 +25,22 @@ CANDIDATE_TAG="${CANDIDATE_TAG:-candidate}"
 ROUTE_DELAY_MS="${ROUTE_DELAY_MS:-0}"
 RELEASE_VERSION="${RELEASE_VERSION:-$(git rev-parse --short HEAD 2>/dev/null || echo dev)}"
 IMAGE_REF="${IMAGE_REF:?IMAGE_REF must identify the CI-built Artifact Registry image to deploy}"
+IMAGE_TAG="${IMAGE_REF##*:}"
+
+# The image tag is the immutable identity. Carry its short SHA through Cloud
+# Run's revision name, the app's health response, and the UI so a Grafana row
+# can be read back to the deployed image without an external lookup.
+if [[ "${IMAGE_TAG}" =~ ^git-([0-9a-f]{7,40})$ ]]; then
+  RELEASE_ID="${BASH_REMATCH[1]:0:7}"
+else
+  echo "IMAGE_REF must use the immutable git-<full-sha> tag; got ${IMAGE_REF}" >&2
+  exit 2
+fi
+REVISION_SUFFIX="git-${RELEASE_ID}"
 
 echo "==> Deploying candidate"
 echo "    project=${GCP_PROJECT} region=${GCP_REGION} service=${SERVICE}"
-echo "    version=${RELEASE_VERSION} route_delay_ms=${ROUTE_DELAY_MS}"
+echo "    release_id=${RELEASE_ID} image_tag=${IMAGE_TAG} route_delay_ms=${ROUTE_DELAY_MS}"
 echo "    image=${IMAGE_REF}"
 
 gcloud run deploy "${SERVICE}" \
@@ -42,7 +54,8 @@ gcloud run deploy "${SERVICE}" \
   --memory 512Mi \
   --min-instances 1 \
   --max-instances 4 \
-  --set-env-vars "RELEASE_VERSION=${RELEASE_VERSION},ROUTE_DELAY_MS=${ROUTE_DELAY_MS}" \
+  --revision-suffix "${REVISION_SUFFIX}" \
+  --set-env-vars "RELEASE_VERSION=${RELEASE_ID},IMAGE_TAG=${IMAGE_TAG},ROUTE_DELAY_MS=${ROUTE_DELAY_MS}" \
   --tag "${CANDIDATE_TAG}" \
   --no-traffic \
   --quiet

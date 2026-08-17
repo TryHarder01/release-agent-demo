@@ -10,6 +10,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_STATIC_DIR = path.resolve(__dirname, '../../web/dist');
 
 const RELEASE_VERSION = process.env.RELEASE_VERSION || 'dev';
+const RELEASE_ID = /^[0-9a-f]{7,40}$/i.test(RELEASE_VERSION) ? RELEASE_VERSION.slice(0, 7) : RELEASE_VERSION;
+const IMAGE_TAG = process.env.IMAGE_TAG || (RELEASE_ID === 'dev' ? 'local' : `git-${RELEASE_ID}`);
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -28,12 +30,12 @@ export function createApp({ staticDir = DEFAULT_STATIC_DIR } = {}) {
 
   // --- Health -------------------------------------------------------------
   app.get('/health', (req, res) => {
-    res.json({ status: 'ok', version: RELEASE_VERSION, uptime_seconds: Math.round(process.uptime()) });
+    res.json({ status: 'ok', version: RELEASE_ID, image_tag: IMAGE_TAG, uptime_seconds: Math.round(process.uptime()) });
   });
 
   // --- Telemetry ----------------------------------------------------------
   app.get('/metrics', (req, res) => {
-    res.json({ version: RELEASE_VERSION, ...metrics.snapshot() });
+    res.json({ version: RELEASE_ID, image_tag: IMAGE_TAG, ...metrics.snapshot() });
   });
 
   // Prometheus exposition is intentionally separate from /metrics: the release
