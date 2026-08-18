@@ -27,9 +27,39 @@ test('@critical calculates and displays a route', async ({ page }) => {
   await expect(page.getByTestId('result-service-level')).toHaveText('Standard');
   await expect(page.getByTestId('result-sla')).toHaveText('8h 38m');
   await expect(page.getByTestId('result-dispatch-risk')).toHaveText('On track');
+  // 312 mi * $2.10/mi (van, standard) = $655.20.
+  await expect(page.getByTestId('result-cost')).toHaveText('$655.20');
+  // No elapsed_minutes supplied, so the shipment isn't SLA-tracked.
+  await expect(page.getByTestId('result-sla-status')).toHaveCount(0);
 
   // A schema regression surfaces here rather than as a blank field.
   await expect(page.getByTestId('route-error')).toHaveCount(0);
+});
+
+test('@critical rejects refrigerated service on a van instead of silently accepting it', async ({ page }) => {
+  await page.goto('/');
+
+  await page.getByTestId('origin-input').selectOption('Denver');
+  await page.getByTestId('destination-input').selectOption('Salt Lake City');
+  await page.getByTestId('vehicle-select').selectOption('van');
+  await page.getByTestId('service-level-select').selectOption('refrigerated');
+  await page.getByTestId('calculate-button').click();
+
+  await expect(page.getByTestId('route-error')).toBeVisible();
+  await expect(page.getByTestId('route-error')).toContainText('refrigerated');
+  await expect(page.getByTestId('route-results')).toHaveCount(0);
+});
+
+test('flags an SLA breach once elapsed time exceeds the delivery commitment', async ({ page }) => {
+  await page.goto('/');
+
+  await page.getByTestId('origin-input').selectOption('Denver');
+  await page.getByTestId('destination-input').selectOption('Salt Lake City');
+  await page.getByTestId('elapsed-minutes-input').fill('600'); // SLA is 518 min for standard/van.
+  await page.getByTestId('calculate-button').click();
+
+  await expect(page.getByTestId('route-results')).toBeVisible();
+  await expect(page.getByTestId('result-sla-status')).toHaveText('Breached');
 });
 
 test('@critical reflects vehicle type in the estimate', async ({ page }) => {

@@ -14,11 +14,33 @@ const VEHICLE_DURATION_MULTIPLIER = {
 // Service level changes the operational commitment, not the deterministic road
 // time. Keeping those concepts separate lets the UI expose a realistic dispatch
 // choice without making the core route estimate surprising or non-repeatable.
+// `rateMultiplier` scales the base per-mile rate below.
 const SERVICE_LEVEL_POLICY = {
-  standard: { label: 'Standard', dispatchBufferMinutes: 180 },
-  expedited: { label: 'Expedited', dispatchBufferMinutes: 45 },
-  refrigerated: { label: 'Refrigerated', dispatchBufferMinutes: 90 },
+  standard: { label: 'Standard', dispatchBufferMinutes: 180, rateMultiplier: 1.0 },
+  expedited: { label: 'Expedited', dispatchBufferMinutes: 45, rateMultiplier: 1.35 },
+  refrigerated: { label: 'Refrigerated', dispatchBufferMinutes: 90, rateMultiplier: 1.2 },
 };
+
+// Not every vehicle can carry every service level — refrigerated freight needs
+// cold-chain capacity a cargo van doesn't have. This is the one place vehicle
+// and service level constrain each other rather than being independent picks.
+const ELIGIBLE_VEHICLES_FOR_SERVICE = {
+  standard: ['van', 'box_truck', 'semi'],
+  expedited: ['van', 'box_truck', 'semi'],
+  refrigerated: ['box_truck', 'semi'],
+};
+
+// Illustrative dollar-per-mile rate by vehicle, before the service-level
+// multiplier. Larger vehicles cost more to run per mile.
+const BASE_RATE_PER_MILE_USD = {
+  van: 2.1,
+  box_truck: 2.75,
+  semi: 3.4,
+};
+
+// A shipment already in transit is "at risk" once it's used up this fraction
+// of its SLA window, and "breached" once it exceeds it entirely.
+const SLA_AT_RISK_THRESHOLD = 0.85;
 
 // Hand-seeded lanes so the demo shows plausible numbers for real city pairs.
 // Denver -> Salt Lake City is the canonical demo lane (312 mi / 338 min on a van).
@@ -72,6 +94,19 @@ function dispatchRiskFor(status, serviceLevel) {
   return 'on_track';
 }
 
+/**
+ * A shipment's progress against its own SLA quote. `elapsedMinutes` is
+ * supplied by the caller (this app has no live tracking of its own), so the
+ * result stays a pure function of its inputs rather than depending on the
+ * wall clock.
+ */
+function slaStatusFor(elapsedMinutes, slaMinutes) {
+  if (elapsedMinutes === null) return 'not_tracked';
+  if (elapsedMinutes > slaMinutes) return 'breached';
+  if (elapsedMinutes >= slaMinutes * SLA_AT_RISK_THRESHOLD) return 'at_risk';
+  return 'on_time';
+}
+
 export class ValidationError extends Error {
   constructor(message) {
     super(message);
@@ -80,14 +115,16 @@ export class ValidationError extends Error {
 }
 
 /**
- * @param {{origin: string, destination: string, vehicle_type?: string, service_level?: string}} input
- * @returns {{distance_miles: number, duration_minutes: number, status: string, vehicle_type: string, service_level: string, service_level_label: string, delivery_sla_minutes: number, dispatch_risk: string, lane: string}}
+ * @param {{origin: string, destination: string, vehicle_type?: string, service_level?: string, elapsed_minutes?: number}} input
+ * @returns {{distance_miles: number, duration_minutes: number, status: string, vehicle_type: string, service_level: string, service_level_label: string, delivery_sla_minutes: number, dispatch_risk: string, lane: string, estimated_cost_usd: number, sla_status: string, sla_remaining_minutes: number | null}}
  */
 export function calculateRoute(input) {
   const origin = String(input?.origin ?? '').trim();
   const destination = String(input?.destination ?? '').trim();
   const vehicleType = String(input?.vehicle_type ?? 'van').trim() || 'van';
   const serviceLevel = String(input?.service_level ?? 'standard').trim() || 'standard';
+  const elapsedMinutesRaw = input?.elapsed_minutes;
+  const elapsedMinutes = elapsedMinutesRaw === undefined || elapsedMinutesRaw === null ? null : Number(elapsedMinutesRaw);
 
   if (!origin) throw new ValidationError('origin is required');
   if (!destination) throw new ValidationError('destination is required');
@@ -97,12 +134,21 @@ export function calculateRoute(input) {
   if (!SERVICE_LEVELS.includes(serviceLevel)) {
     throw new ValidationError(`service_level must be one of: ${SERVICE_LEVELS.join(', ')}`);
   }
+  if (!ELIGIBLE_VEHICLES_FOR_SERVICE[serviceLevel].includes(vehicleType)) {
+    const eligible = ELIGIBLE_VEHICLES_FOR_SERVICE[serviceLevel].join(', ');
+    throw new ValidationError(`${serviceLevel} service is not available on a ${vehicleType}; eligible vehicles: ${eligible}`);
+  }
+  if (elapsedMinutes !== null && (!Number.isFinite(elapsedMinutes) || elapsedMinutes < 0)) {
+    throw new ValidationError('elapsed_minutes must be a non-negative number');
+  }
 
   const lane = baseLane(origin, destination);
   const multiplier = VEHICLE_DURATION_MULTIPLIER[vehicleType];
   const durationMinutes = Math.round(lane.duration * multiplier);
   const status = statusFor(lane.distance);
   const servicePolicy = SERVICE_LEVEL_POLICY[serviceLevel];
+  const deliverySlaMinutes = durationMinutes + servicePolicy.dispatchBufferMinutes;
+  const estimatedCostUsd = Math.round(lane.distance * BASE_RATE_PER_MILE_USD[vehicleType] * servicePolicy.rateMultiplier * 100) / 100;
 
   return {
     distance_miles: lane.distance,
@@ -111,8 +157,11 @@ export function calculateRoute(input) {
     vehicle_type: vehicleType,
     service_level: serviceLevel,
     service_level_label: servicePolicy.label,
-    delivery_sla_minutes: durationMinutes + servicePolicy.dispatchBufferMinutes,
+    delivery_sla_minutes: deliverySlaMinutes,
     dispatch_risk: dispatchRiskFor(status, serviceLevel),
     lane: `${origin} → ${destination}`,
+    estimated_cost_usd: estimatedCostUsd,
+    sla_status: slaStatusFor(elapsedMinutes, deliverySlaMinutes),
+    sla_remaining_minutes: elapsedMinutes === null ? null : deliverySlaMinutes - elapsedMinutes,
   };
 }

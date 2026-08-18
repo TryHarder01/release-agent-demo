@@ -501,6 +501,21 @@ select.field__input {
   color: var(--danger);
 }
 
+.badge--sla-on_time {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
+.badge--sla-at_risk {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+.badge--sla-breached {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
 /* Responsive -------------------------------------------------------------- */
 @media (max-width: 640px) {
   .app {

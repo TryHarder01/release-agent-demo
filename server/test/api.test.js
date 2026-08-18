@@ -55,6 +55,24 @@ describe('POST /api/route', () => {
       .send({ origin: 'Denver', destination: 'Reno', vehicle_type: 'hovercraft' })
       .expect(400);
   });
+
+  it('rejects refrigerated service on a van with 400', async () => {
+    const res = await request(app)
+      .post('/api/route')
+      .send({ origin: 'Denver', destination: 'Reno', vehicle_type: 'van', service_level: 'refrigerated' })
+      .expect(400);
+    expect(res.body.error).toMatch(/refrigerated/);
+  });
+
+  it('includes cost and SLA-tracking fields in the response', async () => {
+    const res = await request(app)
+      .post('/api/route')
+      .send({ origin: 'Denver', destination: 'Salt Lake City', vehicle_type: 'van' })
+      .expect(200);
+
+    expect(res.body.estimated_cost_usd).toBeCloseTo(655.2, 2);
+    expect(res.body.sla_status).toBe('not_tracked');
+  });
 });
 
 describe('GET /metrics', () => {
