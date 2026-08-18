@@ -44,8 +44,9 @@ Workload Identity Federation, and the registry are all in
 CI builds the container once and pushes it to Artifact Registry. `deploy.sh`
 deploys that existing image; it never rebuilds source during release. It derives
 a `git-<short-sha>` Cloud Run revision suffix from the immutable
-`git-<full-sha>` image tag. The same short SHA is surfaced in `/health` and the
-FleetNet header, so Grafana's `revision_name` maps visibly back to the image.
+`git-<full-sha>` image tag. The service identity and same short SHA are
+surfaced in `/health` and the FleetNet header, so Grafana's `revision_name`
+maps visibly back to the image.
 
 ## Deploy a candidate
 

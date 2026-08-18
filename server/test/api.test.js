@@ -27,6 +27,7 @@ describe('GET /health', () => {
   it('reports ok', async () => {
     const res = await request(app).get('/health').expect(200);
     expect(res.body.status).toBe('ok');
+    expect(res.body.service).toBe('fleetnet-route-planner');
     expect(res.body).toHaveProperty('version');
     expect(res.body).toHaveProperty('image_tag');
     expect(res.body).toHaveProperty('uptime_seconds');
