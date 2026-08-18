@@ -208,6 +208,18 @@ async function main() {
     base_url: BASE_URL,
     version: health.version,
     evaluated_at: new Date().toISOString(),
+    // Which revision was verified, and what was serving production at the
+    // time. A verdict is only interpretable against a baseline: without these
+    // a later reader cannot tell what the candidate is being compared to, or
+    // reach the same revisions to check the numbers.
+    candidate: {
+      revision: process.env.CANDIDATE_REVISION || null,
+      url: BASE_URL,
+    },
+    baseline: {
+      revision: process.env.BASELINE_REVISION || null,
+      url: process.env.PRODUCTION_URL || null,
+    },
     policy: POLICY,
     checks,
     details: { health, load, metrics, e2e },
