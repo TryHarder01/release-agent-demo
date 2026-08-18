@@ -31,13 +31,37 @@ is a different job.
 gcloud config get-value project   # warpdemo-505821
 oz whoami                          # logged in, team Demo
 gh auth status                     # TryHarder01
+oz secret list                     # GCP_SA_KEY present
+gh secret list                     # WARP_API_KEY present
 ```
 
-The Oz environment (`DemoApp`, `6E6yxZoQ6uUZCFDrQDiZ7Z`), its image, and the
-`GCP_SA_KEY` secret are already configured. See [oz/README.md](../oz/README.md)
-to rebuild any of it.
+Both secrets matter, and neither fails loudly. Without `GCP_SA_KEY` the agent
+cannot read telemetry. Without `WARP_API_KEY` the release path **skips the
+agent silently** and logs one line to the job summary — the demo runs to
+completion and quietly loses its ending.
 
-Allow about 25 minutes for a full run, most of it waiting on CI and Cloud Run.
+Then check the starting state, because a wrong one makes later beats fail in
+confusing ways:
+
+```bash
+# main is healthy: no relay code, 32 tests
+git switch main && git pull
+grep -c planRelayHandoff server/src/routeEngine.js   # 0
+
+# production serves main
+gcloud run services describe fleetnet-route-planner \
+  --region northamerica-northeast1 --project warpdemo-505821 \
+  --format='value(status.traffic)'
+
+# the regression PR is open and current with main
+gh pr view 21 --json state,mergeStateStatus
+```
+
+If PR #21 is behind `main`, update it before anything else — see the first row
+of [Common failures](#common-failures).
+
+Allow 30 minutes. Most of it is waiting: CI builds an image, Cloud Run deploys,
+and the agent takes 8–15 minutes to produce a brief.
 
 ## The moving parts
 
@@ -46,8 +70,10 @@ Allow about 25 minutes for a full run, most of it waiting on CI and Cloud Run.
 | Service | `fleetnet-route-planner`, `northamerica-northeast1` |
 | Production URL | `https://fleetnet-route-planner-majbcfnhwq-nn.a.run.app` |
 | Candidate URL | `https://candidate---fleetnet-route-planner-majbcfnhwq-nn.a.run.app` |
-| Regression branch | `regression/relay-handoff-planning` |
+| Regression pull request | **#21**, branch `regression/relay-handoff-planning` |
+| Trigger | the `deploy-candidate` label |
 | Agent skill | `.claude/skills/release-readiness/SKILL.md` |
+| Oz environment | `DemoApp`, `6E6yxZoQ6uUZCFDrQDiZ7Z` |
 
 ## Run the demo
 
@@ -80,8 +106,11 @@ because the gate said yes.
 
 ### 3. Say go
 
-Add the `deploy-candidate` label to the pull request in the GitHub UI. Nothing
+Add the `deploy-candidate` label to pull request #21 in the GitHub UI. Nothing
 else runs on your machine.
+
+If the label was already applied from a previous run, remove it and re-add it —
+GitHub only fires on the transition.
 
 GitHub Actions records the revision serving production, deploys the pull
 request's head commit as a **0%-traffic** candidate under its own tagged URL,
@@ -130,8 +159,16 @@ plan Denver to Salt Lake City, then change one dropdown to Phoenix. Measured
 
 ### 6. Read the brief, then look at the dashboard again
 
-The comment on the pull request links it. Expect **HUMAN REVIEW**, explicitly
-disagreeing with the gate.
+The agent takes 8–15 minutes. When it finishes, the pull request comment links
+the brief. Expect **HUMAN REVIEW**, explicitly disagreeing with the gate.
+
+If the link is missing, the agent still ran — find it directly:
+
+```bash
+oz run list
+oz run get <run-id>                 # the verdict and summary
+oz run get <run-id> --conversation  # every command it issued
+```
 
 Then refresh Grafana. The candidate's p95 now reads about 9960 ms while the
 baseline holds at 9.5 ms.
@@ -153,7 +190,8 @@ paper over.
   all 40 requests — the gate's report proves it never ran the change.
 - 20 of the 90 lane pairs selectable in the UI exceed 900 miles.
 - Re-running the gate's load with long-haul lanes included puts p95 at
-  ~2500 ms against the 750 ms threshold.
+  2645–2885 ms against the 750 ms threshold, versus ~1 ms on a control run
+  using the gate's own lanes.
 - **The severe one:** the scan is synchronous, so on one CPU a single long
   request stalls every concurrent request. The critical lane goes from 0.128 s
   to 2.623 s. p50 stays at 0.5 ms, so no aggregate shows it.
@@ -175,6 +213,9 @@ Leave the regression pull request open and unmerged. `main` stays healthy —
 
 | Symptom | Cause |
 | --- | --- |
+| Labelling does nothing, no run starts | The branch predates the label trigger. Merge `main` into it, push, then remove and re-add the label. This is the most common failure. |
+| The release runs but no agent brief appears | `WARP_API_KEY` is unset or Oz is unavailable. The step skips by design and says so in the job summary. |
+| The brief link is missing from the comment | The agent ran; only the link was lost. Find it with `oz run list`. |
 | `release.yml` fails at deploy | The image for that sha is not in Artifact Registry yet. Wait for the branch's CI push job. |
 | Long-haul lanes respond fast | Cold instance, or you hit production rather than the candidate. Check `/health` reports the candidate's commit. |
 | Agent run fails during setup | Environment setup, not the agent. Check the image is `r0124x/oz-release-agent:latest`. |
