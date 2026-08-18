@@ -199,13 +199,19 @@ paper over.
   metric to infer a problem from — that absence is the finding, not a gap in
   the agent's evidence. Only the baseline can be read from existing telemetry,
   because only production has real traffic.
-- **The severe one:** the scan is synchronous, so on one CPU a single long
-  request stalls every concurrent request. The critical lane goes from 0.128 s
-  to 2.623 s. p50 stays at 0.5 ms, so no aggregate shows it.
+- Because the scan is synchronous, one long request stalls every concurrent
+  request on that instance. The critical lane goes from 0.128 s to 2.623 s.
+  p50 stays at 0.5 ms, so no aggregate shows it.
+- **The severe one:** `/health` degrades from 39 ms idle to ~4.5 s under relay
+  load. Cloud Run uses that endpoint for liveness, so a latency regression
+  becomes an availability risk — instances get killed and restarted under
+  ordinary traffic. Nothing in the gate, the dashboard, or a manual latency
+  check surfaces this.
 
-The last point is the one to lead with. A sampling gap is a testing problem. An
-agent reasoning about how a change interacts with the runtime is the thing no
-one wrote a check for.
+Lead with the last point. A sampling gap is a testing problem someone could
+have anticipated. An agent reasoning about how a change interacts with the
+runtime — event loop, health probe, instance lifecycle — is the thing nobody
+wrote a check for, because writing it would have required already knowing.
 
 ## Reset
 
