@@ -164,12 +164,11 @@ jobs:
           verdict=$(jq -r '.verdict' release-report.json 2>/dev/null || echo unknown)
 
           # Facts only. Naming the conclusion would make the answer worthless.
-          run_id=$("$OZ" agent run-cloud \
+          agent_output=$("$OZ" agent run-cloud \
             --environment "${OZ_ENVIRONMENT}" \
             --skill '${{ github.repository }}:.claude/skills/release-readiness/SKILL.md' \
             --name release-readiness \
             --title "Release readiness: ${CANDIDATE_REVISION}" \
-            --output-format json \
             --prompt "Release readiness review for the FleetNet candidate now deployed on Cloud Run.
 
           Repo: ${{ github.repository }}, ref ${{ github.ref_name }}, commit ${{ github.sha }}.
@@ -181,7 +180,20 @@ jobs:
           GCP project warpdemo-505821, region northamerica-northeast1, service fleetnet-route-planner.
           A read-only service account key is in \$GCP_SA_KEY.
 
-          Produce the release readiness brief." | jq -r '.run_id // empty')
+          Produce the release readiness brief." 2>&1 || true)
+
+          echo "${agent_output}"
+
+          # `agent run-cloud` prints human-readable lines regardless of
+          # --output-format, so pull the run id out by shape rather than
+          # parsing it as JSON.
+          run_id=$(printf '%s' "${agent_output}" \
+            | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' \
+            | head -1)
+
+          if [ -z "${run_id}" ]; then
+            echo "Could not determine the agent run id from the CLI output." >&2
+          fi
 
           echo "run_id=${run_id}" >> "$GITHUB_OUTPUT"
 
@@ -190,7 +202,11 @@ jobs:
             echo ""
             echo "Gate verdict: \`${verdict}\`"
             echo ""
-            echo "Brief: https://oz.warp.dev/runs/${run_id}"
+            if [ -n "${run_id}" ]; then
+              echo "Brief: https://oz.warp.dev/runs/${run_id}"
+            else
+              echo "The agent was launched but its run id could not be parsed."
+            fi
             echo ""
             echo "> Advisory. This review does not gate the job and cannot promote."
           } >> "$GITHUB_STEP_SUMMARY"
