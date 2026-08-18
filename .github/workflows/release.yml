@@ -128,6 +128,36 @@ jobs:
             playwright-report/
             media/
 
+      # A verdict is only legible if you can see it from the pull request list.
+      # The gate's is available the moment it runs; the agent's arrives minutes
+      # later, so mark the review as in flight and let the agent replace it.
+      #
+      # Any agent verdict still on the pull request describes the previous
+      # candidate, so clear it before this one is reviewed.
+      - name: Stamp the gate verdict
+        if: ${{ always() && github.event_name == 'pull_request' && steps.deploy.outcome == 'success' }}
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          verdict=$(jq -r '.verdict // empty' release-report.json 2>/dev/null || true)
+          case "${verdict}" in
+            PROMOTE)      want='gate:promote' ;;
+            NEEDS_REVIEW) want='gate:needs-review' ;;
+            STOP)         want='gate:stop' ;;
+            *) echo "No verdict in release-report.json; leaving labels alone." ; exit 0 ;;
+          esac
+
+          stale=''
+          for l in 'gate:promote' 'gate:needs-review' 'gate:stop' \
+                   'agent:ready' 'agent:human-review' 'agent:not-ready'; do
+            [ "$l" = "$want" ] || stale="${stale}${stale:+,}${l}"
+          done
+          gh pr edit "$PR" --remove-label "$stale" || true
+          gh pr edit "$PR" --add-label "$want"
+          echo "Gate verdict ${verdict} -> ${want}"
+
       # The gate answers "did the checks pass". This asks whether those checks
       # covered what changed — a question no threshold can express, and the one
       # a PROMOTE most needs asked. It is advisory: it never gates the job and
@@ -140,6 +170,8 @@ jobs:
         if: ${{ !inputs.skip_agent_review && always() && steps.deploy.outcome == 'success' }}
         continue-on-error: true
         env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
           WARP_API_KEY: ${{ secrets.WARP_API_KEY }}
           OZ_ENVIRONMENT: ${{ vars.OZ_ENVIRONMENT || '6E6yxZoQ6uUZCFDrQDiZ7Z' }}
           CANDIDATE_REVISION: ${{ steps.deploy.outputs.candidate_revision }}
@@ -150,6 +182,10 @@ jobs:
           if [ -z "${WARP_API_KEY}" ]; then
             echo "WARP_API_KEY not set; skipping the agent review." >> "$GITHUB_STEP_SUMMARY"
             exit 0
+          fi
+
+          if [ -n "${PR}" ]; then
+            gh pr edit "${PR}" --add-label 'agent:reviewing' || true
           fi
 
           # The tarball holds the binary as `oz-stable` alongside a `resources/`
@@ -177,10 +213,21 @@ jobs:
           Serving in production: ${BASELINE_REVISION} at ${PRODUCTION_URL}
           The two revisions run on identical infrastructure and differ by exactly this commit.
           The release gate returned: ${verdict}. Its release-report.json is an artifact of run ${{ github.run_id }}.
+          Pull request under review: ${PR:-none}.
           GCP project warpdemo-505821, region northamerica-northeast1, service fleetnet-route-planner.
           A read-only service account key is in \$GCP_SA_KEY.
 
-          Produce the release readiness brief." 2>&1 || true)
+          Produce the release readiness brief.
+
+          When the brief is finished, record your verdict as a label on pull request ${PR},
+          so it is visible from the pull request list without opening anything:
+
+            gh pr edit ${PR} --remove-label 'agent:reviewing,agent:ready,agent:human-review,agent:not-ready'
+            gh pr edit ${PR} --add-label '<label>'
+
+          Use agent:ready for READY, agent:human-review for HUMAN REVIEW, and
+          agent:not-ready for NOT READY. Apply exactly one. This records the verdict
+          you reached; it is not a hint about which verdict to reach." 2>&1 || true)
 
           echo "${agent_output}"
 
