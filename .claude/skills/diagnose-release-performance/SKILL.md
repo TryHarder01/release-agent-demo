@@ -9,9 +9,7 @@ This is not the release gate. `scripts/verify-release.mjs` remains the sole
 policy authority — its thresholds are correct and this skill never overrides
 them. This skill is for the question the gate structurally can't answer: *why*
 does the evidence look the way it does, and does the gate's own sampling
-design cover what actually changed. Read `docs/regressions.md`'s Regression C
-before using this on a real investigation — it's the concrete case this skill
-exists for.
+design cover what actually changed.
 
 Use `investigate` for any ordinary bug, unexpected behavior, or code-path
 trace. This skill is deliberately narrower: an already-deployed FleetNet
@@ -140,8 +138,8 @@ can't:
 2. If so, query logs filtered to that condition. Are `duration_ms` values
    elevated versus the same filter on the previous (serving) revision?
 3. Query `client_error` for the same revision and window. Elevated duration
-   with zero client errors is the Regression C shape — slow, not broken.
-   Elevated duration with elevated client errors is closer to Regression A —
+   with zero client errors means slow, not broken. Elevated duration with
+   elevated client errors is closer to `docs/regressions.md`'s Regression A —
    something is actually failing, not just slow.
 4. State the aggregate Cloud Monitoring p95 alongside the per-lane finding.
    A quiet aggregate does not contradict a real per-lane regression — it
