@@ -1,13 +1,24 @@
 # Follow-on work: intentional regressions
 
 > **Status: not yet implemented.** The app on `main` is deliberately healthy.
-> This document specifies the two regression PRs to add next, so the Oz demo has
-> something realistic to catch.
+> This document specifies the three regression PRs to add next, so the Oz demo
+> has something realistic to catch.
 
-The point of each regression is the same: **CI stays green, the deploy succeeds,
+Regressions A and B share one point: **CI stays green, the deploy succeeds,
 and only post-deployment verification catches the problem.** If a regression
 fails CI, it is useless for this demo — the whole story is that build-time
 signals were insufficient.
+
+Regression C is a different point, and it needs the other two to land first:
+**the deterministic release gate can also be wrong, not just CI.**
+`scripts/verify-release.mjs` checks real numbers against real thresholds — that
+part is correct and should stay a script, not an agent. But its load test only
+ever samples four fixed lanes (`verify-release.mjs`'s `LANES` array), so a
+regression gated on something those four lanes never trigger is invisible to
+it by construction. No threshold rule catches "the gate didn't test what
+changed" — only something that reads the diff *and* the gate's own sampling
+design can. That's the gap an Oz agent fills, and it's a different job from
+running `scripts/verify-release.mjs` faster or more often.
 
 The current split makes this work:
 
@@ -138,9 +149,135 @@ git switch -c regression/traffic-aware-enrichment
 
 ---
 
+## Regression C — a slow path the gate's own lane list can't see
+
+**Story.** Dispatch asks for relay planning on long-haul lanes: pick a handoff
+point so a second driver can take over partway through. A reasonable feature,
+reasonably reviewed, reasonably tested. The regression isn't in what it does —
+it's in the fact that nothing checks how long it takes on the lanes that
+matter, and the release gate structurally cannot sample those lanes.
+
+### Why the gate can't see it
+
+`scripts/verify-release.mjs` drives its load test from a hardcoded four-lane
+list:
+
+```js
+const LANES = [
+  { origin: 'Denver', destination: 'Salt Lake City', vehicle_type: 'van' },   // 312 mi
+  { origin: 'Dallas', destination: 'Houston', vehicle_type: 'semi' },         // 239 mi
+  { origin: 'Chicago', destination: 'Detroit', vehicle_type: 'box_truck' },   // 283 mi
+  { origin: 'Seattle', destination: 'Portland', vehicle_type: 'van' },        // 174 mi
+];
+```
+
+All four are under 600 miles. `routeEngine.js`'s `statusFor()` only returns
+`suboptimal` above 600 miles and `requires_relay` above 900 — so every request
+the gate ever issues comes back `optimized`. A code path gated on
+`status === 'requires_relay'` is never exercised during release verification,
+no matter how many times the gate runs.
+
+### The change
+
+In `server/src/routeEngine.js`, add relay-handoff scoring for long-haul lanes,
+called only when `status === 'requires_relay'`:
+
+```diff
++// Long-haul lanes need a mid-route handoff point. Score every facility in the
++// relay network against this lane and return the best match.
++function planRelayHandoff(distance) {
++  let best = null;
++  for (const facility of RELAY_FACILITY_NETWORK) {
++    const score = Math.abs(facility.approxMile - distance / 2);
++    if (!best || score < best.score) best = { ...facility, score };
++  }
++  return best;
++}
++
+ export function calculateRoute(input) {
+   ...
+   const status = statusFor(lane.distance);
++  const relayHandoff = status === 'requires_relay' ? planRelayHandoff(lane.distance) : null;
+   ...
+   return {
+     ...
++    relay_handoff: relayHandoff,
+   };
+ }
+```
+
+`RELAY_FACILITY_NETWORK` is a synthetic in-memory list large enough that the
+linear scan costs real time per request — an ordinary "loop over a dataset
+instead of indexing it" mistake, not a deliberate `sleep()`. The exact latency
+should be benchmarked when this is actually built, not asserted here; the
+point stands regardless of the precise number, because the gate never runs
+this line at all.
+
+Add a unit test asserting `relay_handoff` is present and well-formed for a
+long-haul input — it passes, and proves correctness, not speed:
+
+- `server/test/routeEngine.test.js` — a `distance > 900` case gets a
+  `relay_handoff` object back
+
+### What happens
+
+| Signal | Result |
+| --- | --- |
+| Unit + API tests | PASS |
+| Container build | PASS |
+| Deploy | PASS |
+| `/health` | PASS |
+| Error rate | PASS |
+| p95 latency | **PASS — the four sampled lanes never touch the slow path** |
+| Playwright `@critical` | PASS |
+| **`scripts/verify-release.mjs` verdict** | **`PROMOTE`** |
+
+This is a false negative, not a missed threshold. The release gate has nothing
+to fail — its own test design guarantees it never asks a `requires_relay`
+question.
+
+### What actually shows the regression
+
+Nothing in the automated pipeline. Proof has to come from outside the gate's
+sampling:
+
+```bash
+# Any of the gate's four lanes: fast, as always
+curl -s localhost:8080/api/route -d '{"origin":"Denver","destination":"Salt Lake City"}'
+
+# A long-haul lane the gate never tries: slow, and nothing flagged it
+# (verified: hashes to 1054 mi -> status "requires_relay")
+curl -s localhost:8080/api/route -d '{"origin":"Miami","destination":"Minneapolis"}'
+```
+
+In production, this is what `grafana/fleetnet-observability-firehose.json`'s
+per-revision percentile panels are for: real traffic includes long-haul lanes
+even though the release gate's synthetic traffic doesn't. But per
+`grafana/README.md`, that dashboard is deliberately **not a second gate** — it's
+context a human or an agent reads, not a rule that blocks promotion. Nothing
+today connects "the diff touches `requires_relay`" to "the gate's `LANES`
+array has no lane over 900 miles." That connection is exactly the kind of
+synthesis a boolean rule can't express and an Oz agent can: read the diff, read
+the gate's own test design, and flag the coverage gap *before* trusting a
+`PROMOTE`.
+
+**Expected verdict from `scripts/verify-release.mjs`: `PROMOTE`.** That verdict
+is the demo — showing it's wrong is the point, not a bug to fix in the gate.
+
+### Branch
+
+```bash
+git switch -c regression/relay-handoff-planning
+```
+
+---
+
 ## Verified behaviour
 
-Both verdicts have been confirmed against a real container on `main`:
+Regressions A and B have been confirmed against a real container on `main`.
+Regression C has not been built yet, so its behavior above is a prediction
+from reading the gate's source, not a run — confirm it the same way once the
+branch exists.
 
 ```
 $ ROUTE_DELAY_MS=2500 ./scripts/verify-local.sh
@@ -169,6 +306,11 @@ ROUTE_DELAY_MS=2500 ./scripts/verify-local.sh # slow      -> NEEDS_REVIEW (exit 
 For regression A, check out the branch and run the same command — it will
 return `STOP` (exit 1).
 
+For regression C, `verify-local.sh` will return `PROMOTE` — that's expected,
+not a test failure. The gap only shows by comparing what the gate sampled
+(`curl` the four `LANES` lanes) against what it didn't (`curl` a long-haul
+lane) on the same running container.
+
 ## Suggested demo order
 
 1. Show `main` deploying clean → **PROMOTE**.
@@ -176,3 +318,8 @@ return `STOP` (exit 1).
    Makes the case that CI alone is not a release gate.
 3. Open regression A → CI green, deploy green, **STOP** on the critical flow.
    Makes the case that health checks alone are not a release gate either.
+4. Open regression C → CI green, deploy green, gate says **PROMOTE**. Have the
+   Oz agent read the diff and the gate's `LANES` array and flag the coverage
+   gap anyway. Makes the case that the release gate itself isn't the ceiling —
+   synthesizing evidence the gate was never designed to check is a distinct
+   job, and it's the one an agent is for.
