@@ -204,7 +204,7 @@ jobs:
           agent_output=$("$OZ" agent run-cloud \
             --environment "${OZ_ENVIRONMENT}" \
             --agent "${OZ_RELEASE_READINESS_AGENT}" \
-            --skill '${{ github.repository }}:.claude/skills/release-readiness/SKILL.md' \
+            --computer-use \
             --name release-readiness \
             --title "Release readiness: ${CANDIDATE_REVISION}" \
             --prompt "Release readiness review for the FleetNet candidate now deployed on Cloud Run.
@@ -219,7 +219,12 @@ jobs:
           GCP project warpdemo-505821, region northamerica-northeast1, service fleetnet-route-planner.
           A read-only service account key is in \$GCP_SA_KEY.
 
-          Produce the release readiness brief.
+          Produce the release readiness brief. The changed behavior is reachable
+          through the shipped UI: use computer use to attach a control screenshot,
+          an affected-path screenshot, and a short walkthrough video. Add a
+          **Visual evidence** section with direct artifact links to the brief. If
+          any visual evidence cannot be captured, record why under **Unknowns**;
+          do not omit it silently.
 
           When the brief is finished, record your verdict as a label on pull request ${PR},
           so it is visible from the pull request list without opening anything:
