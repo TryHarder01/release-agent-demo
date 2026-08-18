@@ -3,7 +3,7 @@
 This is a small, public Cloud Run proxy for demonstrating Warp's Bring Your
 Own LLM (BYO-LLM) setting. Configure Warp with the deployed URL, a single API
 key, and two low-cost models: `vertex-gemini-3-1-flash-lite` and
-`vertex-gemini-2-0-flash-lite`. Warp then sends its normal
+`vertex-gemini-3-5-flash-lite`. Warp then sends its normal
 OpenAI Chat Completions requests to this service, which streams them to Gemini
 on Vertex AI using the Cloud Run service account.
 
@@ -16,7 +16,7 @@ not a general-purpose AI gateway.
 | Surface | Behavior |
 | --- | --- |
 | Warp protocol | `POST /v1/chat/completions` with `stream: true` |
-| Models | Fixed aliases for Gemini 3.1 Flash-Lite and Gemini 2.0 Flash-Lite |
+| Models | Fixed aliases for Gemini 3.1 Flash-Lite and Gemini 3.5 Flash-Lite |
 | Tool use | The OpenAI-compatible Vertex endpoint receives Warp's tool calls directly |
 | Authentication | One API key in Secret Manager, accepted as Bearer or `x-api-key` |
 | Spend controls | 20 requests/minute and four active streams per key, 64K output-token cap, 4 MB request cap, five Cloud Run instances |
@@ -53,7 +53,7 @@ gcloud run deploy llm-proxy --source . --region=northamerica-northeast1 --allow-
 Grant the Cloud Run service account `roles/aiplatform.user` and
 `roles/secretmanager.secretAccessor`. Paste the deployed URL, key, and
 `vertex-gemini-3-1-flash-lite` into Warp's custom endpoint settings. Add a
-second endpoint with the same URL and key for `vertex-gemini-2-0-flash-lite`.
+second endpoint with the same URL and key for `vertex-gemini-3-5-flash-lite`.
 
 ## Add the endpoint in Warp
 
@@ -87,18 +87,18 @@ Select **Add endpoint**. Then add the second endpoint with these values:
 | Warp field | Value |
 | --- | --- |
 | API schema | `OpenAI Chat Completions` |
-| Endpoint name | `Vertex Gemini 2.0 Flash-Lite` |
+| Endpoint name | `Vertex Gemini 3.5 Flash-Lite` |
 | Endpoint URI | The same Cloud Run URL. Do not append `/v1`. |
 | API key | The same `wvp_…` token from Secret Manager. |
-| Model name | `vertex-gemini-2-0-flash-lite` |
-| Model alias | `Vertex Gemini 2.0 Flash-Lite` |
+| Model name | `vertex-gemini-3-5-flash-lite` |
+| Model alias | `Vertex Gemini 3.5 Flash-Lite` |
 
 Both models appear in Warp's picker under their aliases.
 
 ## Enable the Vertex model
 
-Gemini 3.1 Flash-Lite is the default low-cost option. Gemini 2.0 Flash-Lite is
-available for a second inexpensive choice with the same proxy contract.
+Gemini 3.1 Flash-Lite is the default low-cost option. Gemini 3.5 Flash-Lite is
+available as a second inexpensive choice with the same proxy contract.
 
 ## Try the endpoint
 
@@ -110,7 +110,7 @@ curl -N https://YOUR_SERVICE_URL/v1/chat/completions \
   -H 'Authorization: Bearer wvp_YOUR_KEY' \
   -H 'Content-Type: application/json' \
   --data '{
-    "model": "vertex-gemini-2-0-flash-lite",
+    "model": "vertex-gemini-3-5-flash-lite",
     "stream": true,
     "messages": [{"role": "user", "content": "Say hello in five words."}]
   }'

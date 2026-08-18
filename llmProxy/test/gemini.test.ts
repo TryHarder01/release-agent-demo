@@ -7,7 +7,7 @@ describe("catalog", () => {
   it("exposes the two fixed Gemini aliases", () => {
     expect(catalog).toEqual(expect.arrayContaining([
       expect.objectContaining({ id: "vertex-gemini-3-1-flash-lite", target: "google/gemini-3.1-flash-lite" }),
-      expect.objectContaining({ id: "vertex-gemini-2-0-flash-lite", target: "google/gemini-2.0-flash-lite" }),
+      expect.objectContaining({ id: "vertex-gemini-3-5-flash-lite", target: "google/gemini-3.5-flash-lite" }),
     ]));
   });
 

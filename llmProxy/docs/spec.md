@@ -38,7 +38,7 @@ cloud-hosted runs can't reach it.
 | Model family | Vertex protocol | `model` value |
 | --- | --- | --- |
 | Gemini 3.1 Flash-Lite | OpenAI-compatible Chat Completions | In the body. Use `google/gemini-3.1-flash-lite`. |
-| Gemini 2.0 Flash-Lite | OpenAI-compatible Chat Completions | In the body. Use `google/gemini-2.0-flash-lite`. |
+| Gemini 3.5 Flash-Lite | OpenAI-compatible Chat Completions | In the body. Use `google/gemini-3.5-flash-lite`. |
 
 Gemini's Vertex endpoint already uses the OpenAI Chat Completions shape. The
 proxy replaces only the public model alias and the inbound API key with a
@@ -164,9 +164,9 @@ them prefixed, because they appear next to Warp's own model list in the picker.
       "location": "global"
     },
     {
-      "alias": "vertex-gemini-2-0-flash-lite",
+      "alias": "vertex-gemini-3-5-flash-lite",
       "backend": "gemini",
-      "target": "google/gemini-2.0-flash-lite",
+      "target": "google/gemini-3.5-flash-lite",
       "location": "global"
     }
   ]
