@@ -226,6 +226,9 @@ jobs:
           any visual evidence cannot be captured, record why under **Unknowns**;
           do not omit it silently.
 
+          Post the complete brief, including its **Visual evidence** links, as a
+          comment on pull request ${PR}. An Oz-run-only brief is incomplete.
+
           When the brief is finished, record your verdict as a label on pull request ${PR},
           so it is visible from the pull request list without opening anything:
 
