@@ -1,0 +1,4 @@
+interface:
+  display_name: "Investigate"
+  short_description: "Trace behavior into evidence-led findings"
+  default_prompt: "Use $investigate to diagnose this behavior and save a concise evidence-led report."

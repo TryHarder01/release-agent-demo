@@ -1,9 +1,9 @@
 ---
-name: investigate-performance
-description: Cross-reference Cloud Monitoring metrics and Cloud Logging entries directly for a FleetNet revision — no Grafana dependency. Use when a release verdict is NEEDS_REVIEW, when scripts/verify-release.mjs returned PROMOTE but a diff touches a code path the gate's fixed four-lane sample doesn't cover, or when asked to explain a candidate's performance beyond the boolean gate's checks.
+name: diagnose-release-performance
+description: Diagnose FleetNet Cloud Run candidate performance after release verification by cross-referencing Cloud Monitoring and Cloud Logging directly, without Grafana. Use only for a NEEDS_REVIEW verdict, a suspected release-gate sampling blind spot, or an explanation of a candidate revision's latency/errors beyond the boolean gate. For any other bug or behavior investigation, use `investigate`.
 ---
 
-# Investigate performance
+# Diagnose release performance
 
 This is not the release gate. `scripts/verify-release.mjs` remains the sole
 policy authority — its thresholds are correct and this skill never overrides
@@ -12,6 +12,10 @@ does the evidence look the way it does, and does the gate's own sampling
 design cover what actually changed. Read `docs/regressions.md`'s Regression C
 before using this on a real investigation — it's the concrete case this skill
 exists for.
+
+Use `investigate` for any ordinary bug, unexpected behavior, or code-path
+trace. This skill is deliberately narrower: an already-deployed FleetNet
+candidate, its release result, and Cloud Run performance evidence.
 
 Never run a mutating command. Read-only: `gcloud logging read`, `gcloud run
 revisions describe`, and plain `curl -sG` (with a `gcloud auth

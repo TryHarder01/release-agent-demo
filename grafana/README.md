@@ -41,7 +41,7 @@ rather than a bare identifier.
 `roles/monitoring.viewer` and `roles/logging.viewer`, nothing else. Deliberately
 not the deploy identity: a read-only observability identity should not hold a
 key that can deploy to Cloud Run. The second role was added for the
-`investigate-performance` skill, which reads Cloud Logging directly and has no
+`diagnose-release-performance` skill, which reads Cloud Logging directly and has no
 connection to this dashboard.
 
 The key lives at `grafana/gcp-key.json` and the path is set in `grafana/.env`.
