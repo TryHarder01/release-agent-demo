@@ -1,129 +1,73 @@
 ---
 name: google-style
-description: This skill should be used when the user says "this is too verbose", "tighten this up", "make this concise", "use Google style", "too wordy", or asks to write or edit a SKILL.md, README, docs page, PR description, or code comment. Applies the Google developer documentation style guide (developers.google.com/style) — sentence-level conciseness, active voice, imperative procedures, sentence-case headings, tables over prose, and inclusive-language rules — and ships a linter that flags departures.
+description: This skill should be used when the user says "this is too verbose", "tighten this up", "make this concise", "use Google style", "too wordy", or asks to write or edit a SKILL.md, README, docs page, PR description, or code comment. Applies the Google developer documentation style guide (developers.google.com/style) and runs a linter that flags departures.
 ---
 
 # Google developer documentation style
 
-Google's guide optimizes for one reader: someone **scanning to find the one
-thing they need**, not reading front to back. Every rule below traces to that.
-Active voice names the actor without a re-read. Sentence case makes headings
-scannable. Cut filler, and every surviving sentence is one the reader needed.
+Write for someone scanning to find one thing, not reading front to back.
+[Google's guide](https://developers.google.com/style) is the reference; the
+rules below are the ones that get violated in practice, and the linter is what
+enforces them.
 
-Apply the pass below in order. Cutting outranks rewriting at every step: a
-shorter true sentence beats a smoother long one.
+## Rules that bite
 
-## The pass
+1. **Scale the document to the change.** A small change gets a paragraph and
+   its evidence, not a section per point. Headings are rooms, and a room wants
+   furniture — so don't build rooms you can't fill.
+2. **Cut before rewriting.** Delete `just`, `simply`, `currently`, `basically`,
+   `please`, `note that`, `in order to`, `due to the fact that`. Each deletion
+   is free.
+3. **One idea per sentence.** When a `, which` or `, and` starts a second
+   claim, make it a second sentence.
+4. **Active voice and the imperative.** "The gate blocks the merge," not "the
+   merge is blocked." "Run `npm run verify`," not "you should run it." Keep
+   passive only when the actor is unknown, irrelevant, or better unnamed.
+5. **Free buried verbs.** `provides a description of` → `describes`.
+6. **Match the container to the content.** Ordered steps → numbered list, each
+   starting with an imperative verb. Items with two or more attributes → table.
+   Two items, or ideas that flow → prose. Never a bulleted list of one thing.
+7. **Sentence case headings, no `-ing` opener.** "Deploy to Cloud Run," not
+   "Deploying To Cloud Run."
 
-### 1. Scan
+## The heading test
+
+**Could this heading appear unchanged in a different document?** If yes, it's a
+label, not information — "Key decisions," "Overview," "The decision worth
+reviewing." Name what the section holds instead: "Where Google and
+skill-authoring guidance conflict."
+
+Exception: conventional slots a standard defines (`Verification` and `Notes` in
+this repo's PR template, `Installation` in a README). Readers navigate to those
+by name, so predictability beats novelty.
+
+## Non-negotiable
+
+Inclusive language (`denylist`/`allowlist`, `primary`/`replica`, singular
+`they`) and accessibility (alt text, descriptive link text, no `above`/`below`
+cross-references). These are errors, not preferences. The arbitrary long tail
+lives in `references/word-list.md` — consult it rather than guessing.
+
+## Run the linter
 
 ```bash
 python3 .claude/skills/google-style/scripts/style_lint.py <files...>
 ```
 
-Flags banned words, filler, passive voice, first person, title-case headings,
-`-ing` headings, directional cross-references, ambiguous dates, and sentences
-over 40 words. Options: `--stats`, `--min-severity 2`, `--only inclusive`,
-`--max-sentence N`, `--json`.
+Options: `--stats`, `--min-severity 2`, `--only inclusive`, `--max-sentence N`,
+`--json`. It reports candidates, never verdicts, and never auto-replaces. A
+clean run means the words check out, not that the document says the right
+thing.
 
-Treat every hit as a candidate. The linter sees words; it cannot see whether the
-document says the right thing, so read the file too.
+Remaining hits should be deliberate and defensible in one sentence. Prose that
+argues a position may need a long sentence or an emphatic one — break the rule
+knowingly, but never the inclusive-language or accessibility ones.
 
-### 2. Cut
+## Scope
 
-Delete before rewriting. Three passes, in this order, because each one makes the
-next smaller:
+This judges how a document reads, not what belongs in it or whether it's
+correct. For text that reads as machine-written rather than merely verbose, use
+`remove-ai-slop`. Never reword quoted text, error strings tests assert on, API
+names, or legal language.
 
-1. **Delete filler words.** `just`, `simply`, `currently`, `basically`,
-   `please`, `in order to`, `due to the fact that`, `note that`. Each deletion
-   is free — the sentence loses nothing. Full table in
-   `references/word-list.md`.
-2. **Split compound sentences.** A sentence executes one idea, the way a
-   statement executes one task. When a `, which` or `, and` starts a second
-   claim, make it a second sentence.
-3. **Free buried verbs.** `provides a description of` → `describes`. Look for
-   `-tion`/`-ment`/`-ance` nouns propped up by `make`, `perform`, `provide`,
-   `conduct`, `give`.
-
-### 3. Recast
-
-Four rewrites, applied to what survived:
-
-| Fix | From | To |
-| --- | --- | --- |
-| Active voice | The merge is blocked by the gate. | The gate blocks the merge. |
-| Imperative | You should run the verify script. | Run `npm run verify`. |
-| Condition first | Rerun the build if it fails. | If the build fails, rerun it. |
-| Specific over vague | improves performance | cuts p95 from 2508 ms to 340 ms |
-
-Passive voice survives when the actor is genuinely unknown, irrelevant, or
-better left unnamed ("Over 50 conflicts were found"). Don't convert those —
-converting invents an actor who isn't there.
-
-Reserve `we` for real claims about this project's authors and decisions. Never
-as a stand-in for `you` or for the system.
-
-Details and edge cases: `references/sentences.md`.
-
-### 4. Restructure
-
-Match the container to the content. Pick one:
-
-| Content | Container |
-| --- | --- |
-| Steps done in order | Numbered list, each step starting with an imperative verb |
-| Several items, no sequence | Bulleted list, three items minimum |
-| Items with two or more attributes each | Table |
-| One or two items, or ideas that flow | Prose |
-
-Then fix the surface: sentence case in headings, serial commas, code font for
-anything the reader types or that names a real identifier, bold for UI elements
-only, descriptive link text, `2026-08-18` dates. Details:
-`references/structure.md`.
-
-### 5. Verify
-
-Re-run the linter. Every remaining hit should be deliberate, and worth
-defending in one sentence. Then confirm no claim moved: qualifiers carrying
-real uncertainty (`usually`, `in most cases`) stay. Tightening prose must not
-tighten facts.
-
-## Where the guide is wrong for the document
-
-Google writes reference documentation for a global audience. A document that
-argues a position — a design doc, a PR body, a skill file explaining *why* a
-rule exists — needs the occasional long sentence and the occasional emphatic
-one. Keep those, knowingly.
-
-Two rule clusters never bend:
-
-- **Inclusive language.** `denylist`/`allowlist`, `primary`/`replica`,
-  singular `they`. These are errors, not preferences.
-- **Accessibility.** Alt text on every image, descriptive link text, and no
-  `above`/`below` cross-references — position changes with rendering, and a
-  screen reader has no "above."
-
-## Scope limits
-
-This skill judges how a document reads, not what belongs in it or whether it's
-correct. A concise sentence can still be wrong. For text that reads as
-machine-written rather than merely verbose — hollow openers, uniform rhythm,
-list-ification — use `remove-ai-slop` instead; it targets tells, this targets
-Google's rulebook. Run both when a document needs both.
-
-Never reword quoted text, error strings tests assert on, API and CLI names, or
-legal language.
-
-## Files
-
-- `references/word-list.md` — avoid → use table, condensed from
-  [developers.google.com/style/word-list](https://developers.google.com/style/word-list),
-  plus the inclusive-language replacements.
-- `references/sentences.md` — one idea per sentence, subordinate-clause triage,
-  nominalizations, active voice, person, and the global-audience rules
-  (noun stacks, idioms, ambiguous pronouns).
-- `references/structure.md` — headings, lists, tables, procedures, code font,
-  accessibility, dates, and notices, each with its reason.
-- `examples/before-after.md` — worked edits with commentary. Read this when
-  unsure how hard to push.
-- `scripts/style_lint.py` — the linter. Zero dependencies, Python 3.
+`examples/before-after.md` calibrates how hard to push.

@@ -186,6 +186,33 @@ PATTERNS = [
 CATEGORIES = ["wordlist", "filler", "voice", "person", "structure", "format",
               "inclusive", "tone"]
 ING_EXEMPT = {"billing", "pricing", "logging", "routing", "engineering", "onboarding"}
+
+# Headings that survive unchanged into any document ever written, so they tell a
+# reader scanning an outline nothing about this one.
+LABEL_HEADINGS = {
+    "overview", "introduction", "intro", "background", "details", "summary",
+    "conclusion", "key decisions", "key points", "key takeaways", "takeaways",
+    "considerations", "things to consider", "important", "miscellaneous",
+    "other", "additional information", "additional notes", "general",
+    "discussion", "final thoughts", "closing thoughts", "what you need to know",
+    "the interesting part", "more information", "context",
+}
+# Conventional slots a standard defines: readers navigate to these by name, and
+# predictability beats novelty in a heading every document of the kind carries.
+SLOT_HEADINGS = {
+    "verification", "notes", "revert", "rollback", "usage", "installation",
+    "install", "requirements", "prerequisites", "files", "template",
+    "references", "examples", "license", "scope", "changelog", "testing",
+}
+META_HEADING_RX = re.compile(
+    r"^(the\s+)?(interesting|important|notable|tricky|clever)\b"
+    r"|worth\s+(reviewing|noting|reading|a look)", re.I)
+# A trailing ", and why" is part of one instruction; a full trailing clause
+# ("..., and what it deliberately does not do") is a second heading.
+TWO_PART_HEADING_RX = re.compile(
+    r",\s+and\s+(what|how|why|when|where)\b(\s+\S+){3,}", re.I)
+# Weak on its own: a heading about work deliberately skipped is not defensive.
+DEFENSIVE_HEADING_RX = re.compile(r"\b(deliberately|intentionally|on purpose)\b", re.I)
 SEV_NAME = {3: "high", 2: "med", 1: "low"}
 
 SENT_SPLIT = re.compile(r"(?<=[.!?])[\"')\]]*\s+")
@@ -382,6 +409,31 @@ def scan_structure(text, raw, only, min_sev, max_sentence):
                     "excerpt": m.group(0).strip()[:72],
                     "hint": "Sentence case in headings: capitalize the first word only.",
                 })
+
+            bare = re.sub(r"[^\w\s]", "", title).strip().lower()
+            if bare in LABEL_HEADINGS and bare not in SLOT_HEADINGS:
+                findings.append({
+                    "id": "structure.label-heading", "category": "structure", "severity": 2,
+                    "line": line, "column": col, "match": title[:60],
+                    "excerpt": m.group(0).strip()[:72],
+                    "hint": "Could appear unchanged in any document. Name what this "
+                            "section holds instead.",
+                })
+            for rx, pid, why in (
+                (META_HEADING_RX, "structure.meta-heading",
+                 "Describes the section's role, not its content. Name the content."),
+                (TWO_PART_HEADING_RX, "structure.two-part-heading",
+                 "Two headings joined by a comma. Keep the half that carries the section."),
+                (DEFENSIVE_HEADING_RX, "structure.defensive-heading",
+                 "Pre-empting an objection in a heading. Make the argument in the prose."),
+            ):
+                if rx.search(title):
+                    findings.append({
+                        "id": pid, "category": "structure",
+                        "severity": 1 if "defensive" in pid else 2,
+                        "line": line, "column": col, "match": title[:60],
+                        "excerpt": m.group(0).strip()[:72], "hint": why,
+                    })
 
             first = re.match(r"[A-Za-z]+", title)
             if first and first.group(0).lower().endswith("ing") \

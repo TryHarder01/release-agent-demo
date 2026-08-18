@@ -130,6 +130,33 @@ Not style preferences. Correct a violation before review, not after merge.
 
 ## Template
 
+**Scale the body to the change.** Most PRs are a paragraph, the evidence, and
+the gaps — under 250 words. The headings below are slots to open only when the
+change earns them. A heading with three sentences under it should have stayed a
+paragraph, and a section that exists because the template listed it reads as
+padding. Nothing here requires a 40-file PR's structure for a 4-file PR.
+
+A small change:
+
+```markdown
+What this is and why, in two or three sentences. Link the spec.
+
+Then the interesting decision, if there is one, in a sentence or two of prose —
+not a section.
+
+**Expected verdict: `X`** — reasoning.
+
+```verbatim command output, real numbers```
+
+One line each on what wasn't run and why, what's deliberately out of scope, and
+how to revert.
+```
+
+A large change earns headings. Use `## Verification` and `## Notes` verbatim —
+reviewers navigate to those by name — and make every other heading name what
+its section holds, never its role in the document ("Key decisions" and "The
+interesting part" are labels, not information).
+
 ```markdown
 One or two sentences: what this is and why it exists. Link the spec.
 
@@ -138,7 +165,7 @@ One or two sentences: what this is and why it exists. Link the spec.
 ## <What it does>
 Tables for endpoints / behavior / contracts.
 
-## <The interesting decision>
+## <The decision, named>
 The one design choice a reviewer would otherwise reverse-engineer from the
 diff. Say what you rejected and why.
 
