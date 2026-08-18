@@ -5,11 +5,17 @@
  * the UI must fail loudly rather than silently rendering a blank field. That is
  * what makes a schema regression visible to the end-to-end test.
  */
-export async function calculateRoute({ origin, destination, vehicleType, serviceLevel }) {
+export async function calculateRoute({ origin, destination, vehicleType, serviceLevel, elapsedMinutes }) {
   const res = await fetch('/api/route', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ origin, destination, vehicle_type: vehicleType, service_level: serviceLevel }),
+    body: JSON.stringify({
+      origin,
+      destination,
+      vehicle_type: vehicleType,
+      service_level: serviceLevel,
+      elapsed_minutes: elapsedMinutes === '' || elapsedMinutes === undefined ? undefined : Number(elapsedMinutes),
+    }),
   });
 
   if (!res.ok) {
@@ -19,7 +25,7 @@ export async function calculateRoute({ origin, destination, vehicleType, service
 
   const data = await res.json();
 
-  const missing = ['distance_miles', 'duration_minutes', 'status'].filter(
+  const missing = ['distance_miles', 'duration_minutes', 'status', 'estimated_cost_usd'].filter(
     (key) => data[key] === undefined || data[key] === null,
   );
   if (missing.length > 0) {
@@ -40,4 +46,8 @@ export function formatDuration(minutes) {
   const mins = minutes % 60;
   if (hours === 0) return `${mins} min`;
   return `${hours}h ${String(mins).padStart(2, '0')}m`;
+}
+
+export function formatCurrency(usd) {
+  return `$${usd.toFixed(2)}`;
 }

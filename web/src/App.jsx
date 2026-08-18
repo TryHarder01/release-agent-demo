@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { calculateRoute, fetchHealth, formatDuration } from './api.js';
+import { calculateRoute, fetchHealth, formatCurrency, formatDuration } from './api.js';
 
 const VEHICLE_OPTIONS = [
   { value: 'van', label: 'Cargo Van' },
@@ -37,6 +37,13 @@ const RISK_LABELS = {
   on_track: 'On track',
   monitor: 'Monitor',
   attention: 'Attention',
+};
+
+const SLA_STATUS_LABELS = {
+  not_tracked: 'Not tracked',
+  on_time: 'On time',
+  at_risk: 'At risk',
+  breached: 'Breached',
 };
 
 function SystemStatus() {
@@ -83,6 +90,7 @@ export default function App() {
   const [destination, setDestination] = useState('');
   const [vehicleType, setVehicleType] = useState('van');
   const [serviceLevel, setServiceLevel] = useState('standard');
+  const [elapsedMinutes, setElapsedMinutes] = useState('');
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -94,7 +102,7 @@ export default function App() {
     setResult(null);
 
     try {
-      const data = await calculateRoute({ origin, destination, vehicleType, serviceLevel });
+      const data = await calculateRoute({ origin, destination, vehicleType, serviceLevel, elapsedMinutes });
       setResult(data);
     } catch (err) {
       setError(err.message);
@@ -203,6 +211,20 @@ export default function App() {
               </select>
             </label>
 
+            <label className="field">
+              <span className="field__label">Minutes since dispatch (optional)</span>
+              <input
+                className="field__input"
+                data-testid="elapsed-minutes-input"
+                name="elapsed_minutes"
+                type="number"
+                min="0"
+                placeholder="Leave blank if not yet dispatched"
+                value={elapsedMinutes}
+                onChange={(e) => setElapsedMinutes(e.target.value)}
+              />
+            </label>
+
             <button className="button" data-testid="calculate-button" type="submit" disabled={loading}>
               {loading ? 'Calculating…' : 'Calculate Route'}
             </button>
@@ -258,6 +280,24 @@ export default function App() {
                     {formatDuration(result.duration_minutes)}
                   </dd>
                 </div>
+
+                <div className="metric">
+                  <dt className="metric__label">Estimated cost</dt>
+                  <dd className="metric__value" data-testid="result-cost">
+                    {formatCurrency(result.estimated_cost_usd)}
+                  </dd>
+                </div>
+
+                {result.sla_status !== 'not_tracked' ? (
+                  <div className="metric">
+                    <dt className="metric__label">SLA status</dt>
+                    <dd className="metric__value" data-testid="result-sla-status">
+                      <span className={`badge badge--sla-${result.sla_status}`}>
+                        {SLA_STATUS_LABELS[result.sla_status] || result.sla_status}
+                      </span>
+                    </dd>
+                  </div>
+                ) : null}
 
                 <div className="metric">
                   <dt className="metric__label">Dispatch risk</dt>
