@@ -38,19 +38,36 @@ jobs:
       - name: Build container image
         run: docker build -t fleetnet-route-planner:ci .
 
-  # Publishes the merged image that release.yml later deploys as a 0%-traffic
-  # candidate. Pushing is not a release: verification still decides whether
-  # the candidate revision may receive production traffic.
+  # Publishes the image that release.yml later deploys as a 0%-traffic
+  # candidate, for pull requests as well as main. A change has to be
+  # deployable before it is merged, because the questions that matter — does
+  # it survive the release gate, what does it do to a real revision — cannot
+  # be answered from a build artifact.
+  #
+  # Pushing is not a release. Verification still decides whether a candidate
+  # revision may receive production traffic, and merging is still what puts a
+  # change on main.
+  #
+  # Fork pull requests are excluded: they cannot mint the OIDC token that
+  # authenticates to Artifact Registry.
   push:
     name: Push image to Artifact Registry
     runs-on: ubuntu-latest
     needs: test
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.head.repo.full_name == github.repository)
     permissions:
       contents: read
       id-token: write
     steps:
+      # On a pull request the default checkout is the merge commit, whose sha
+      # nothing else can name. Use the branch head, so the image tag matches
+      # the sha `release.yml --ref <branch>` resolves to.
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Authenticate to Google Cloud
         id: auth
@@ -77,8 +94,8 @@ jobs:
           # The full commit SHA identifies the deployable artifact. `latest` is
           # a convenience pointer only; no deployment is allowed to use it.
           tags: |
-            type=raw,value=git-${{ github.sha }}
-            type=raw,value=latest
+            type=raw,value=git-${{ github.event.pull_request.head.sha || github.sha }}
+            type=raw,value=latest,enable={{is_default_branch}}
 
       # Cloud Run is amd64. GitHub runners are too, so this is a native build,
       # but the platform is pinned so it stays correct on arm64 runners.
@@ -95,6 +112,8 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Summarize
+        env:
+          BUILT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           {
             echo "### Image pushed"
@@ -103,9 +122,12 @@ jobs:
             echo "${{ env.IMAGE }}@${{ steps.build.outputs.digest }}"
             echo '```'
             echo ""
-            echo "Tagged \`git-${GITHUB_SHA}\` and \`latest\`."
+            echo "Tagged \`git-${BUILT_SHA}\`."
             echo ""
-            echo "> Not a release. release.yml deploys \`git-${GITHUB_SHA}\` as a candidate, then verifies it."
+            echo "> Not a release. Deploy and verify it with:"
+            echo '```'
+            echo "gh workflow run release.yml --ref ${{ github.head_ref || github.ref_name }}"
+            echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
   preview:
