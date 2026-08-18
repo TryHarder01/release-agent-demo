@@ -73,6 +73,7 @@ describe('calculateRoute', () => {
         'sla_status',
         'status',
         'vehicle_type',
+        'relay_handoff',
       ].sort(),
     );
     expect(typeof result.distance_miles).toBe('number');
@@ -143,6 +144,33 @@ describe('calculateRoute', () => {
     // Seeded lanes are all short; find a long one deterministically.
     const result = calculateRoute({ origin: 'Miami', destination: 'Seattle' });
     expect(['optimized', 'suboptimal', 'requires_relay']).toContain(result.status);
+  });
+
+  it('plans a relay handoff for a lane that needs one', () => {
+    const result = calculateRoute({ origin: 'Miami', destination: 'Minneapolis' });
+
+    expect(result.status).toBe('requires_relay');
+    expect(result.relay_handoff).toMatchObject({
+      facility_id: expect.stringMatching(/^RF-\d{5}$/),
+      relief_domicile_id: expect.stringMatching(/^RF-\d{5}$/),
+    });
+
+    // The handoff splits the lane rather than dumping it on one driver.
+    const { first_leg_miles: first, second_leg_miles: second } = result.relay_handoff;
+    expect(first + second).toBe(result.distance_miles); // 528 + 526 = 1054
+    expect(Math.abs(first - second)).toBeLessThan(result.distance_miles * 0.1);
+
+    // The relief driver is dispatched to the handoff, not already parked at it.
+    expect(result.relay_handoff.relief_domicile_id).not.toBe(result.relay_handoff.facility_id);
+    expect(result.relay_handoff.deadhead_miles).toBeLessThanOrEqual(250);
+    expect(result.relay_handoff.relief_drivers).toBeGreaterThan(0);
+  });
+
+  it('leaves relay_handoff null for lanes a single driver can run', () => {
+    const result = calculateRoute({ origin: 'Denver', destination: 'Salt Lake City' });
+
+    expect(result.status).toBe('optimized');
+    expect(result.relay_handoff).toBeNull();
   });
 
   it('prices heavier vehicles and faster service higher, per mile', () => {
