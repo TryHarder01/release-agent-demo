@@ -155,8 +155,9 @@ not a section.
 
 The gaps are a bulleted list even in the smallest PR. A reviewer scans them for
 one item — "did they say what they didn't run?" — and prose makes them read all
-five to find it. Skip the bold lead-in on each; plain sentences read faster and
-`- **Thing** — explanation` on every line is a tell.
+five to find it. Write each as a plain sentence. Bolding an invented label on
+every line (`- **Testing** — we ran the tests`) adds a word the reviewer has to
+skip before reaching the claim.
 
 A large change earns headings. Use `## Verification` and `## Notes` verbatim —
 reviewers navigate to those by name — and make every other heading name what
