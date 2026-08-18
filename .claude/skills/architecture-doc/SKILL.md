@@ -8,6 +8,10 @@ description: Generate or refresh ARCHITECTURE.md — a C4-layered architecture d
 Produce `ARCHITECTURE.md`: a C4-layered description of the system with Mermaid
 diagrams that use color as an **encoding**, not decoration.
 
+Read `../mermaid-diagrams/SKILL.md` before writing or repairing any Mermaid
+block. It is the shared source for portable syntax, validation, and generic
+color rules. This skill adds the C4-specific palette below.
+
 The whole point of this skill is the constraint in `references/color-contract.md`.
 A diagram where nodes are colored because color is pretty is worse than a diagram
 with no color at all — it invites the reader to infer a grouping that does not
@@ -76,11 +80,6 @@ verbatim. Non-negotiables from it:
 - Never introduce a hue that is not in the contract. If a distinction needs
   making and no hue covers it, use shape or line style, or add the hue to the
   contract file with a written meaning.
-- **No HTML in Mermaid labels.** No `<br/>`, `<b>`, `<i>`, or any tag. Use `\n`
-  for line breaks and plain Unicode glyphs for markers. HTML labels only render
-  when the host enables `htmlLabels`; they print literally under strict security
-  settings and break SVG export.
-
 `references/diagram-recipes.md` has a working Mermaid template per level with
 the classDefs already inlined. Start from those.
 
