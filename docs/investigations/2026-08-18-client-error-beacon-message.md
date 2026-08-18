@@ -52,15 +52,15 @@ sequenceDiagram
   participant Express as Express app (server/src/app.js)
   participant Log as stdout structured log
 
-  UI->>UI: catch (err) in calculateRoute()
-  UI->>Beacon: sendBeacon('/client-error', JSON.stringify({message: err.message}))
-  Note over Beacon: data is a string, not a Blob -> Content-Type forced to text/plain;charset=UTF-8
-  Beacon->>Express: POST /client-error (text/plain body)
-  Note over Express: express.json() only parses application/json -> req.body stays unset
-  Express->>Express: logJson({severity:'ERROR', event:'client_error', message: req.body?.message})
-  Note over Express: message is undefined -> JSON.stringify omits the key entirely
-  Express->>Log: {"ts":..., "severity":"ERROR", "event":"client_error"}
-  Express-->>UI: 204 No Content (fire-and-forget, no error surfaced)
+  UI->>UI: catches route error
+  UI->>Beacon: sends client error beacon
+  Note over Beacon: string payload uses text plain UTF 8
+  Beacon->>Express: posts text plain body
+  Note over Express: JSON parser leaves body unparsed
+  Express->>Express: reads missing message
+  Note over Express: JSON serialization omits missing field
+  Express->>Log: records client error without message
+  Express-->>UI: returns no content
 ```
 
 ## Reproduce

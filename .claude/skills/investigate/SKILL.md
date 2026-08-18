@@ -47,8 +47,9 @@ FleetNet-specific queries and safety constraints this general workflow lacks.
 Copy `assets/investigation-template.md` into the investigation file, then
 remove empty sections. Keep the final record crisp: lead with the conclusion,
 use short bullets/tables, and include at least two diagrams only when they add
-distinct value. Mermaid must use plain labels (no HTML) and render in standard
-Markdown viewers.
+distinct value. Before writing either Mermaid block, read
+`../mermaid-diagrams/SKILL.md` and follow its portable syntax, color, and
+validation rules.
 
 Required content:
 
@@ -76,6 +77,6 @@ provide the closest observation command.
 - Write blamelessly about systems and conditions, never people.
 - Make every conclusion traceable to an observation; label uncertainty.
 - Keep commands safe by default and include the execution context they need.
-- Check each Mermaid block for valid, compact syntax and ensure the report has
-  no secrets, tokens, personal data, or noisy raw logs.
+- Validate each Mermaid block using `../mermaid-diagrams/SKILL.md`, and ensure
+  the report has no secrets, tokens, personal data, or noisy raw logs.
 - End by naming the file and summarizing the conclusion in 1-3 sentences.
