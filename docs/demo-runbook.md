@@ -12,8 +12,8 @@ One revision, one moment, three readings:
 
 | Source | Reading | Says |
 | --- | --- | --- |
-| `scripts/verify-release.mjs` | p95 1.59 ms | `PROMOTE` |
-| Cloud Monitoring | p95 26.9 ms | green |
+| `scripts/verify-release.mjs` | p95 1.21 ms | `PROMOTE` |
+| Cloud Monitoring | p95 9.5–13.5 ms | green |
 | A lane a dispatcher can select | 2.6 s | unfit to ship |
 
 Nothing is lying. The gate measures exactly what it was built to measure, and
@@ -78,20 +78,41 @@ Open the regression pull request. Point at three things:
 That last line matters. The author disclosed the risk and it shipped anyway,
 because the gate said yes.
 
-### 3. Deploy the candidate without merging
+### 3. Say go
+
+Add the `deploy-candidate` label to the pull request in the GitHub UI. Nothing
+else runs on your machine.
+
+GitHub Actions records the revision serving production, deploys the pull
+request's head commit as a **0%-traffic** candidate under its own tagged URL,
+runs the release gate, and launches the agent. Production keeps serving `main`,
+so the two revisions differ by exactly this change and sit on identical
+infrastructure.
+
+Expect **`PROMOTE`**. Health, 0% errors, p95 1.21 ms against a 750 ms budget,
+all four critical specs green. A comment appears on the pull request with the
+verdict, both revision names, and a link to the agent's brief.
+
+Deploying by hand still works, and is worth knowing if a label misfires:
 
 ```bash
 gh workflow run release.yml --ref regression/relay-handoff-planning
 ```
 
-The candidate lands at **0% traffic** under its own tagged URL. Production
-keeps serving `main`, so the two revisions differ by exactly this change and
-run on identical infrastructure.
+### 4. Read the dashboard before the agent finishes
 
-Expect **`PROMOTE`** again. Every check is green: health, 0% errors, p95
-1.59 ms against a 750 ms budget, all four critical specs.
+```bash
+cd grafana && docker compose up -d   # localhost:3000
+```
 
-### 4. Show what the gate did not ask
+Do this **now**, while the agent is still working. The candidate's p95 reads
+9.5–13.5 ms, indistinguishable from the baseline revision beside it.
+
+That timing is the point, not a convenience. Every instrument the team owns
+says ship it: CI green, gate `PROMOTE`, dashboard flat. The dashboard is not
+broken and not lying — the traffic that would move it has never been sent.
+
+### 5. Show what nothing asked
 
 ```bash
 CAND=https://candidate---fleetnet-route-planner-majbcfnhwq-nn.a.run.app
@@ -107,46 +128,18 @@ Better in a browser, because it needs no explanation: open the candidate URL,
 plan Denver to Salt Lake City, then change one dropdown to Phoenix. Measured
 44 ms and 2086 ms.
 
-### 5. Ask the agent
+### 6. Read the brief, then look at the dashboard again
 
-```bash
-oz agent run-cloud \
-  --environment 6E6yxZoQ6uUZCFDrQDiZ7Z \
-  --skill 'TryHarder01/release-agent-demo:.claude/skills/release-readiness/SKILL.md' \
-  --prompt "$(cat <<'PROMPT'
-Release readiness review for the FleetNet candidate now deployed on Cloud Run.
-Candidate revision: <revision>
-Candidate URL (0% of traffic): <candidate url>
-Serving in production: <baseline revision> at <production url>
-The two revisions run on identical infrastructure and differ by exactly this change.
-The release gate returned PROMOTE.
-GCP project warpdemo-505821, region northamerica-northeast1, service fleetnet-route-planner.
-A read-only service account key is in $GCP_SA_KEY.
-Produce the release readiness brief.
-PROMPT
-)" \
-  --name release-readiness --output-format json
-```
-
-Facts only. Never state the expected conclusion — an agent told what to find
-produces a finding worth nothing.
-
-Read it with `oz run get <id> --conversation`. Expect **HUMAN REVIEW**,
+The comment on the pull request links it. Expect **HUMAN REVIEW**, explicitly
 disagreeing with the gate.
 
-Once `release.yml` has `WARP_API_KEY`, step 3 fires this automatically and
-links the brief from the job summary. Running it by hand shows the reasoning
-more clearly.
+Then refresh Grafana. The candidate's p95 now reads about 9960 ms while the
+baseline holds at 9.5 ms.
 
-### 6. Show the dashboard
-
-```bash
-cd grafana && docker compose up -d   # localhost:3000
-```
-
-Green on the candidate, because the affected lanes are too small a share of
-traffic to move an aggregate. This is the answer to "we already have
-dashboards".
+Nothing about the code changed between those two readings. The agent generated
+the traffic that made the problem visible — it did not find a signal someone
+had missed, it produced one that did not exist. That is the difference between
+reading dashboards and reasoning about a change.
 
 ## What the agent should find
 
@@ -194,9 +187,9 @@ This is a demo, not a production release process. Every number in it is real
 and measured, and the value is in what it invites someone to picture next. Name
 these before the room does, then hand each one back as a question.
 
-- A person launches the agent, and its brief is advisory. Closing the loop —
-  the agent gating promotion, or filing the follow-up itself — is a
-  configuration change, not new capability.
+- The release path launches the agent, but its brief is advisory and no one
+  is required to read it. Closing the loop — the agent gating promotion, or
+  filing the follow-up itself — is a configuration change, not new capability.
 - One service, synthetic traffic. The harder case is a change that looks local
   and lands on a service another team owns. That is where the monorepo
   argument lives, and this demo only gestures at it.
