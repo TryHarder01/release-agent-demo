@@ -14,8 +14,8 @@ on:
         type: boolean
         required: false
         default: false
-      fast_track:
-        description: 'Development only: skip verification and promote the candidate immediately'
+      skip_agent_review:
+        description: 'Skip the Oz release-readiness review'
         type: boolean
         required: false
         default: false
@@ -38,19 +38,16 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
       - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
-        if: ${{ !inputs.fast_track }}
         with:
           node-version: '22'
 
       - name: Install dependencies
-        if: ${{ !inputs.fast_track }}
         run: |
           npm install --no-audit --no-fund
           npm --prefix server install --no-audit --no-fund
           npm --prefix web install --no-audit --no-fund
 
       - name: Install Playwright browsers
-        if: ${{ !inputs.fast_track }}
         run: npx playwright install --with-deps chromium
 
       - name: Authenticate to Google Cloud
@@ -60,6 +57,21 @@ jobs:
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
       - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3
+
+      # What production is serving right now. Captured before the deploy, so
+      # the report names the revision the candidate is actually being compared
+      # against rather than whatever happens to be serving when someone reads it.
+      - name: Record the serving baseline
+        id: baseline
+        run: |
+          revision=$(gcloud run services describe "$SERVICE" \
+            --project "$GCP_PROJECT" --region "$GCP_REGION" \
+            --format='value(status.traffic.filter("percent:100").extract(revisionName))' | tr -d "[]'")
+          url=$(gcloud run services describe "$SERVICE" \
+            --project "$GCP_PROJECT" --region "$GCP_REGION" --format='value(status.url)')
+          echo "baseline_revision=${revision}" >> "$GITHUB_OUTPUT"
+          echo "production_url=${url}" >> "$GITHUB_OUTPUT"
+          echo "Baseline: ${revision:-none} at ${url}"
 
       - name: Deploy candidate revision (no traffic)
         id: deploy
@@ -72,22 +84,24 @@ jobs:
       # Exit code: 0 = PROMOTE, 1 = STOP, 2 = NEEDS_REVIEW.
       - name: Verify release candidate
         id: verify
-        if: ${{ !inputs.fast_track }}
         continue-on-error: true
         env:
           BASE_URL: ${{ steps.deploy.outputs.candidate_url }}
+          CANDIDATE_REVISION: ${{ steps.deploy.outputs.candidate_revision }}
+          BASELINE_REVISION: ${{ steps.baseline.outputs.baseline_revision }}
+          PRODUCTION_URL: ${{ steps.baseline.outputs.production_url }}
         run: npm run verify
 
       # Visual evidence of what the candidate actually looked like when verified.
       - name: Capture candidate media
-        if: ${{ !inputs.fast_track && always() }}
+        if: ${{ always() }}
         continue-on-error: true
         env:
           BASE_URL: ${{ steps.deploy.outputs.candidate_url }}
         run: npm run capture
 
       - name: Upload release report
-        if: ${{ !inputs.fast_track && always() }}
+        if: ${{ always() }}
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: release-report
@@ -96,12 +110,71 @@ jobs:
             playwright-report/
             media/
 
+      # The gate answers "did the checks pass". This asks whether those checks
+      # covered what changed — a question no threshold can express, and the one
+      # a PROMOTE most needs asked. It is advisory: it never gates the job and
+      # never promotes. Runs read-only against GCP under a viewer identity.
+      #
+      # Skipped rather than failed when WARP_API_KEY is absent, so the release
+      # path does not depend on the agent being configured.
+      - name: Oz release-readiness review
+        id: agent
+        if: ${{ !inputs.skip_agent_review && always() && steps.deploy.outcome == 'success' }}
+        continue-on-error: true
+        env:
+          WARP_API_KEY: ${{ secrets.WARP_API_KEY }}
+          OZ_ENVIRONMENT: ${{ vars.OZ_ENVIRONMENT || '6E6yxZoQ6uUZCFDrQDiZ7Z' }}
+          CANDIDATE_REVISION: ${{ steps.deploy.outputs.candidate_revision }}
+          CANDIDATE_URL: ${{ steps.deploy.outputs.candidate_url }}
+          BASELINE_REVISION: ${{ steps.baseline.outputs.baseline_revision }}
+          PRODUCTION_URL: ${{ steps.baseline.outputs.production_url }}
+        run: |
+          if [ -z "${WARP_API_KEY}" ]; then
+            echo "WARP_API_KEY not set; skipping the agent review." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          curl -fsSL 'https://app.warp.dev/download/cli?os=linux&package=tar&arch=x86_64' \
+            | tar -xz -C /usr/local/bin
+
+          verdict=$(jq -r '.verdict' release-report.json 2>/dev/null || echo unknown)
+
+          # Facts only. Naming the conclusion would make the answer worthless.
+          run_id=$(oz agent run-cloud \
+            --environment "${OZ_ENVIRONMENT}" \
+            --skill '${{ github.repository }}:.claude/skills/release-readiness/SKILL.md' \
+            --name release-readiness \
+            --title "Release readiness: ${CANDIDATE_REVISION}" \
+            --output-format json \
+            --prompt "Release readiness review for the FleetNet candidate now deployed on Cloud Run.
+
+          Repo: ${{ github.repository }}, ref ${{ github.ref_name }}, commit ${{ github.sha }}.
+          Candidate revision: ${CANDIDATE_REVISION}
+          Candidate URL (0% of traffic): ${CANDIDATE_URL}
+          Serving in production: ${BASELINE_REVISION} at ${PRODUCTION_URL}
+          The two revisions run on identical infrastructure and differ by exactly this commit.
+          The release gate returned: ${verdict}. Its release-report.json is an artifact of run ${{ github.run_id }}.
+          GCP project warpdemo-505821, region northamerica-northeast1, service fleetnet-route-planner.
+          A read-only service account key is in \$GCP_SA_KEY.
+
+          Produce the release readiness brief." | jq -r '.run_id // empty')
+
+          {
+            echo "### Oz release-readiness review"
+            echo ""
+            echo "Gate verdict: \`${verdict}\`"
+            echo ""
+            echo "Brief: https://oz.warp.dev/runs/${run_id}"
+            echo ""
+            echo "> Advisory. This review does not gate the job and cannot promote."
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Promote to production
-        if: ${{ inputs.fast_track || (inputs.auto_promote && steps.verify.outcome == 'success') }}
+        if: ${{ inputs.auto_promote && steps.verify.outcome == 'success' }}
         run: ./scripts/promote.sh "${{ steps.deploy.outputs.candidate_revision }}"
 
       - name: Fail the job if the candidate did not pass policy
-        if: ${{ !inputs.fast_track && steps.verify.outcome != 'success' }}
+        if: ${{ steps.verify.outcome != 'success' }}
         run: |
           echo "Release verification did not return PROMOTE. Candidate left at 0% traffic."
           cat release-report.json || true
