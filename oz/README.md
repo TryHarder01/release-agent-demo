@@ -63,7 +63,7 @@ action (`scripts/promote.sh`).
 The agent writes the key to a temp file, runs `gcloud auth
 activate-service-account`, and deletes it.
 
-## Running the agent
+## Run the agent
 
 ```bash
 oz agent run-cloud \
@@ -81,3 +81,48 @@ candidate, where it is, what the gate said. Supplying the conclusion you expect
 makes the run worthless as evidence.
 
 Read results with `oz run get <id> --conversation`.
+
+## On-call service triage agent
+
+`fleetnet-sre-triage` investigates reports of sluggishness on a deployed
+FleetNet revision. It uses the same read-only `GCP_SA_KEY` secret and
+preinstalled `gcloud` CLI as the release-readiness agent.
+
+For the demo, ask a plain-language question. The agent defaults to the FleetNet
+production URL and the 60 minutes before the investigation begins:
+
+```text
+Hey, getting some reports of sluggishness from users. Do you see anything
+suspicious?
+```
+
+The SRE can add a revision name, UTC incident window, or target URL when they
+need to narrow the investigation. Without an override, the agent discovers
+active revisions from telemetry and compares their evidence.
+
+The agent checks Cloud Monitoring and Cloud Logging, then performs one health
+request and two sequential route probes. It never resets metrics, generates
+load, deploys, promotes, or changes IAM. Its recommendation is advisory; the
+release gate remains the promotion-policy authority.
+
+Create the saved agent after publishing the repository skill to GitHub. Oz
+resolves skill references from the repository, not from an uncommitted local
+workspace:
+
+```bash
+oz agent create \
+  --name fleetnet-sre-triage \
+  --description 'Read-only FleetNet Cloud Run health and sluggishness triage for on-call SREs.' \
+  --environment 6E6yxZoQ6uUZCFDrQDiZ7Z \
+  --base-model auto \
+  --secret GCP_SA_KEY \
+  --skill 'TryHarder01/release-agent-demo:.claude/skills/on-call-service-triage/SKILL.md' \
+  --prompt 'Investigate FleetNet on-call reports with the on-call-service-triage skill. Default to FleetNet production, the latest 60 minutes, and revisions discovered from telemetry. Accept revision, UTC window, and URL as optional overrides. Return only an evidence-backed advisory report; never mutate cloud or repository state.'
+```
+
+To attach the skill to an existing saved agent after publishing, run:
+
+```bash
+oz agent update AGENT_UID \
+  --add-skill 'TryHarder01/release-agent-demo:.claude/skills/on-call-service-triage/SKILL.md'
+```
