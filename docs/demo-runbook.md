@@ -72,8 +72,37 @@ and the agent takes 8–15 minutes to produce a brief.
 | Candidate URL | `https://candidate---fleetnet-route-planner-majbcfnhwq-nn.a.run.app` |
 | Regression pull request | **#21**, branch `regression/relay-handoff-planning` |
 | Trigger | the `deploy-candidate` label |
+| Verdict labels | `gate:*` and `agent:*` — see [Reading the labels](#reading-the-labels) |
 | Agent skill | `.claude/skills/release-readiness/SKILL.md` |
 | Oz environment | `DemoApp`, `6E6yxZoQ6uUZCFDrQDiZ7Z` |
+
+## Reading the labels
+
+The release path stamps both verdicts onto the pull request, so the state of
+every candidate is legible from the pull request list without opening anything.
+
+| Label | Meaning |
+| --- | --- |
+| `deploy-candidate` | Someone asked for evidence. Applying it starts a release. |
+| `gate:promote` · `gate:needs-review` · `gate:stop` | What `scripts/verify-release.mjs` decided |
+| `agent:reviewing` | The agent is working. Expect 8–15 minutes. |
+| `agent:ready` · `agent:human-review` · `agent:not-ready` | What the agent concluded |
+
+The two arrive minutes apart, so a pull request passes through states rather
+than jumping to a verdict:
+
+```text
+deploy-candidate                                   go
+  → gate:promote  agent:reviewing                  gate is done, agent is not
+  → gate:promote  agent:human-review               the demo
+```
+
+**That last row is the whole argument on one line.** A change the deterministic
+gate cleared, that an agent will not. Any other combination is ordinary: both
+green means ship it, both red means the gate already did its job.
+
+A stale agent verdict is cleared whenever a new candidate deploys, so the two
+labels always describe the same revision.
 
 ## Run the demo
 
@@ -119,8 +148,9 @@ so the two revisions differ by exactly this change and sit on identical
 infrastructure.
 
 Expect **`PROMOTE`**. Health, 0% errors, p95 1.21 ms against a 750 ms budget,
-all four critical specs green. A comment appears on the pull request with the
-verdict, both revision names, and a link to the agent's brief.
+all four critical specs green. The pull request picks up `gate:promote` and
+`agent:reviewing`, and a comment appears with the verdict, both revision names,
+and a link to the agent's brief.
 
 Deploying by hand still works, and is worth knowing if a label misfires:
 
@@ -159,8 +189,13 @@ plan Denver to Salt Lake City, then change one dropdown to Phoenix. Measured
 
 ### 6. Read the brief, then look at the dashboard again
 
-The agent takes 8–15 minutes. When it finishes, the pull request comment links
-the brief. Expect **HUMAN REVIEW**, explicitly disagreeing with the gate.
+The agent takes 8–15 minutes. When it finishes, `agent:reviewing` becomes
+`agent:human-review` and the pull request comment links the brief. Expect
+**HUMAN REVIEW**, explicitly disagreeing with the gate.
+
+The pull request now reads `gate:promote  agent:human-review`. Show the list
+view before opening the brief — the disagreement is the point, and it is
+visible without reading a word of the evidence.
 
 If the link is missing, the agent still ran — find it directly:
 
@@ -227,6 +262,7 @@ Leave the regression pull request open and unmerged. `main` stays healthy —
 | Symptom | Cause |
 | --- | --- |
 | Labelling does nothing, no run starts | The branch predates the label trigger. Merge `main` into it, push, then remove and re-add the label. This is the most common failure. |
+| `agent:reviewing` never changes | The agent has not finished, or it finished without labelling. Check `oz run list` before assuming it failed. |
 | The release runs but no agent brief appears | `WARP_API_KEY` is unset or Oz is unavailable. The step skips by design and says so in the job summary. |
 | The brief link is missing from the comment | The agent ran; only the link was lost. Find it with `oz run list`. |
 | `release.yml` fails at deploy | The image for that sha is not in Artifact Registry yet. Wait for the branch's CI push job. |
