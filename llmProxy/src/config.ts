@@ -7,16 +7,16 @@ export const catalog = [
     location: "global",
   },
   {
-    id: "vertex-gemini-2-0-flash-lite",
+    id: "vertex-gemini-3-5-flash-lite",
     object: "model",
     owned_by: "vertex",
-    target: "google/gemini-2.0-flash-lite",
+    target: "google/gemini-3.5-flash-lite",
     location: "global",
   },
 ] as const;
 
 export const config = {
-  version: "0.2.0",
+  version: "0.3.0",
   port: Number(process.env.PORT ?? 8080),
   projectId: process.env.VERTEX_PROJECT_ID ?? process.env.GOOGLE_CLOUD_PROJECT,
   secretName: process.env.API_KEYS_SECRET_NAME ?? "llm-proxy-api-keys",
