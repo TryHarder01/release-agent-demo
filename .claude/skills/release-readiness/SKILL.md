@@ -102,6 +102,18 @@ your measurement crosses a published threshold under conditions the gate never
 sampled, that is the finding: the policy was already right, the sampling was
 not.
 
+### 7. Preserve visual evidence for reachable UI behavior
+
+When the changed behavior is reachable through the shipped web UI, use computer
+use to capture a reviewer-readable contrast: one control path and one affected
+path. Attach at least one screenshot of each, plus a short walkthrough video
+when the difference is temporal (for example, a wait, stall, or error state).
+Link the artifacts from the pull-request brief under **Visual evidence** and
+say what each proves.
+
+If computer use, attachment, or the relevant UI path is unavailable, put that
+in **Unknowns**. Never silently omit visual evidence for a UI-reachable change.
+
 ## Verdict
 
 Use the vocabulary in `NORTHSTAR.md`, which maps onto the report's verdicts:
@@ -128,6 +140,8 @@ assert what you can run.
   command that regenerates it. Include the gate's verdict as a row.
 - **Coverage gaps** — changed paths no check reaches, with file and line.
 - **What you measured yourself**, with the exact requests you issued.
+- **Visual evidence** for UI-reachable changed behavior, with artifact links;
+  otherwise the reason it could not be captured.
 - **Unknowns** — what you could not verify and why. Required, never empty. A
   brief with no unknowns is a sales pitch.
 - **What would change this decision** — the specific evidence that would move
