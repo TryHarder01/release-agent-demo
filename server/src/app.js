@@ -59,9 +59,11 @@ export function createApp({ staticDir = DEFAULT_STATIC_DIR } = {}) {
     if (delayMs > 0) await sleep(delayMs);
 
     try {
+      const start = performance.now();
       const result = calculateRoute(req.body);
+      const durationMs = Math.round(performance.now() - start);
       metrics.recordRouteProfile(result);
-      logJson({ severity: 'INFO', event: 'route_calculated', lane: result.lane, status: result.status });
+      logJson({ severity: 'INFO', event: 'route_calculated', lane: result.lane, status: result.status, duration_ms: durationMs });
       res.json(result);
     } catch (err) {
       if (err instanceof ValidationError) {
@@ -72,6 +74,14 @@ export function createApp({ staticDir = DEFAULT_STATIC_DIR } = {}) {
       logJson({ severity: 'ERROR', event: 'route_failed', reason: err.message });
       res.status(500).json({ error: 'internal error' });
     }
+  });
+
+  // --- Client telemetry ---------------------------------------------------
+  // Browser-side failures otherwise die silently in the tab. Same logJson
+  // stream as route_calculated, correlatable by timestamp.
+  app.post('/client-error', (req, res) => {
+    logJson({ severity: 'ERROR', event: 'client_error', message: req.body?.message });
+    res.status(204).end();
   });
 
   // --- Static SPA ---------------------------------------------------------
