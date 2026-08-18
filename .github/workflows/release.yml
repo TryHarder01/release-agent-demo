@@ -152,13 +152,19 @@ jobs:
             exit 0
           fi
 
+          # The tarball holds the binary as `oz-stable` alongside a `resources/`
+          # tree it loads at runtime, so keep the two together and call the
+          # binary by path rather than dropping it on PATH.
+          mkdir -p "${RUNNER_TEMP}/oz"
           curl -fsSL 'https://app.warp.dev/download/cli?os=linux&package=tar&arch=x86_64' \
-            | tar -xz -C /usr/local/bin
+            | tar -xz -C "${RUNNER_TEMP}/oz"
+          OZ="${RUNNER_TEMP}/oz/oz-stable"
+          "$OZ" --version
 
           verdict=$(jq -r '.verdict' release-report.json 2>/dev/null || echo unknown)
 
           # Facts only. Naming the conclusion would make the answer worthless.
-          run_id=$(oz agent run-cloud \
+          run_id=$("$OZ" agent run-cloud \
             --environment "${OZ_ENVIRONMENT}" \
             --skill '${{ github.repository }}:.claude/skills/release-readiness/SKILL.md' \
             --name release-readiness \
