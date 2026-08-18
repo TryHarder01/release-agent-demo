@@ -107,6 +107,92 @@ function slaStatusFor(elapsedMinutes, slaMinutes) {
   return 'on_time';
 }
 
+// The partner relay network: every dock a second driver can legally take a
+// trailer over at. Generated from the same deterministic hash as the lane
+// table, so a given lane always plans the same handoff. `corridorMile` is
+// where the dock sits along the freight corridor; lat/lon is its physical
+// position, which is what a relief driver actually has to deadhead across.
+const RELAY_NETWORK_SIZE = 6000;
+
+// A relief driver will not be dispatched further than this to reach a handoff.
+const MAX_DEADHEAD_MILES = 250;
+
+const EARTH_RADIUS_MILES = 3958.8;
+
+function buildRelayNetwork(size) {
+  const facilities = [];
+  for (let i = 0; i < size; i += 1) {
+    const seed = hash(`relay-facility-${i}`);
+    facilities.push({
+      id: `RF-${String(i).padStart(5, '0')}`,
+      corridorMile: 25 + (seed % 1200),
+      lat: 25 + ((seed % 24000) / 1000), // 25.0-49.0 N
+      lon: -125 + (((seed >>> 7) % 58000) / 1000), // 125.0-67.0 W
+      dockCapacity: 2 + ((seed >>> 8) % 12),
+      reliefDrivers: 1 + ((seed >>> 16) % 6),
+    });
+  }
+  return facilities;
+}
+
+const RELAY_FACILITY_NETWORK = buildRelayNetwork(RELAY_NETWORK_SIZE);
+
+function greatCircleMiles(a, b) {
+  const toRadians = Math.PI / 180;
+  const deltaLat = (b.lat - a.lat) * toRadians;
+  const deltaLon = (b.lon - a.lon) * toRadians;
+  const halfLat = Math.sin(deltaLat / 2);
+  const halfLon = Math.sin(deltaLon / 2);
+  const h = halfLat * halfLat
+    + Math.cos(a.lat * toRadians) * Math.cos(b.lat * toRadians) * halfLon * halfLon;
+  return 2 * EARTH_RADIUS_MILES * Math.asin(Math.sqrt(h));
+}
+
+/**
+ * Picks where a long lane hands off to a second driver.
+ *
+ * A relay needs two things at once: a dock with spare capacity near the middle
+ * of the lane, and a relief driver close enough to reach it. Drivers are
+ * domiciled at facilities, so every (handoff, domicile) pairing is a candidate.
+ * The best one splits the lane evenly without spending too much of the saving
+ * on deadhead, and prefers a domicile with drivers to spare.
+ */
+function planRelayHandoff(distance) {
+  let best = null;
+
+  for (const handoff of RELAY_FACILITY_NETWORK) {
+    const firstLeg = handoff.corridorMile;
+    const secondLeg = distance - firstLeg;
+    if (secondLeg <= 0) continue;
+    if (handoff.dockCapacity < 2) continue;
+
+    const imbalance = Math.abs(firstLeg - secondLeg);
+
+    for (const domicile of RELAY_FACILITY_NETWORK) {
+      if (domicile.id === handoff.id) continue;
+
+      const deadhead = greatCircleMiles(domicile, handoff);
+      if (deadhead > MAX_DEADHEAD_MILES) continue;
+
+      const score = imbalance + deadhead * 1.5 - domicile.reliefDrivers * 10;
+      if (best === null || score < best.score) {
+        best = { handoff, domicile, deadhead, firstLeg, secondLeg, score };
+      }
+    }
+  }
+
+  if (best === null) return null;
+
+  return {
+    facility_id: best.handoff.id,
+    relief_domicile_id: best.domicile.id,
+    first_leg_miles: best.firstLeg,
+    second_leg_miles: best.secondLeg,
+    deadhead_miles: Math.round(best.deadhead * 10) / 10,
+    relief_drivers: best.domicile.reliefDrivers,
+  };
+}
+
 export class ValidationError extends Error {
   constructor(message) {
     super(message);
@@ -116,7 +202,7 @@ export class ValidationError extends Error {
 
 /**
  * @param {{origin: string, destination: string, vehicle_type?: string, service_level?: string, elapsed_minutes?: number}} input
- * @returns {{distance_miles: number, duration_minutes: number, status: string, vehicle_type: string, service_level: string, service_level_label: string, delivery_sla_minutes: number, dispatch_risk: string, lane: string, estimated_cost_usd: number, sla_status: string, sla_remaining_minutes: number | null}}
+ * @returns {{distance_miles: number, duration_minutes: number, status: string, vehicle_type: string, service_level: string, service_level_label: string, delivery_sla_minutes: number, dispatch_risk: string, lane: string, estimated_cost_usd: number, sla_status: string, sla_remaining_minutes: number | null, relay_handoff: object | null}}
  */
 export function calculateRoute(input) {
   const origin = String(input?.origin ?? '').trim();
@@ -146,6 +232,7 @@ export function calculateRoute(input) {
   const multiplier = VEHICLE_DURATION_MULTIPLIER[vehicleType];
   const durationMinutes = Math.round(lane.duration * multiplier);
   const status = statusFor(lane.distance);
+  const relayHandoff = status === 'requires_relay' ? planRelayHandoff(lane.distance) : null;
   const servicePolicy = SERVICE_LEVEL_POLICY[serviceLevel];
   const deliverySlaMinutes = durationMinutes + servicePolicy.dispatchBufferMinutes;
   const estimatedCostUsd = Math.round(lane.distance * BASE_RATE_PER_MILE_USD[vehicleType] * servicePolicy.rateMultiplier * 100) / 100;
@@ -163,5 +250,6 @@ export function calculateRoute(input) {
     estimated_cost_usd: estimatedCostUsd,
     sla_status: slaStatusFor(elapsedMinutes, deliverySlaMinutes),
     sla_remaining_minutes: elapsedMinutes === null ? null : deliverySlaMinutes - elapsedMinutes,
+    relay_handoff: relayHandoff,
   };
 }
