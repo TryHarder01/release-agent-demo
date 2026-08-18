@@ -36,7 +36,11 @@ else
   echo "IMAGE_REF must use the immutable git-<full-sha> tag; got ${IMAGE_REF}" >&2
   exit 2
 fi
-REVISION_SUFFIX="git-${RELEASE_ID}"
+# Cloud Run revision names must be unique, so a re-deploy of the same commit
+# needs something to tell the attempts apart. REVISION_ATTEMPT supplies it —
+# a CI run number, usually. The sha stays in the name either way, so a revision
+# is still traceable to the commit it was built from.
+REVISION_SUFFIX="git-${RELEASE_ID}${REVISION_ATTEMPT:+-r${REVISION_ATTEMPT}}"
 
 echo "==> Deploying candidate"
 echo "    project=${GCP_PROJECT} region=${GCP_REGION} service=${SERVICE}"
