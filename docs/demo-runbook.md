@@ -189,9 +189,16 @@ paper over.
 - `release-report.json`'s own `dispatch_profiles` shows `status=optimized` for
   all 40 requests — the gate's report proves it never ran the change.
 - 20 of the 90 lane pairs selectable in the UI exceed 900 miles.
-- Re-running the gate's load with long-haul lanes included puts p95 at
-  2645–2885 ms against the 750 ms threshold, versus ~1 ms on a control run
-  using the gate's own lanes.
+- Re-running the gate's load with long-haul lanes included puts p95 several
+  times over the 750 ms threshold, against roughly 1 ms on a control run using
+  the gate's own lanes. Judge the ratio, not the value: the absolute number
+  moves with Cloud Run CPU, instance warmth, and concurrency. Observed runs
+  have landed between 2600 and 2900 ms.
+- The agent should **measure** this rather than read it. A 0%-traffic candidate
+  has served nothing but the gate's own fast requests, so there is no recent
+  metric to infer a problem from — that absence is the finding, not a gap in
+  the agent's evidence. Only the baseline can be read from existing telemetry,
+  because only production has real traffic.
 - **The severe one:** the scan is synchronous, so on one CPU a single long
   request stalls every concurrent request. The critical lane goes from 0.128 s
   to 2.623 s. p50 stays at 0.5 ms, so no aggregate shows it.
