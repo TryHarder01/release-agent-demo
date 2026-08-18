@@ -38,8 +38,11 @@ rather than a bare identifier.
 ## Credentials
 
 `fleetnet-grafana@warpdemo-505821.iam.gserviceaccount.com`, holding
-`roles/monitoring.viewer` and nothing else. Deliberately not the deploy identity:
-a read-only dashboard should not hold a key that can deploy to Cloud Run.
+`roles/monitoring.viewer` and `roles/logging.viewer`, nothing else. Deliberately
+not the deploy identity: a read-only observability identity should not hold a
+key that can deploy to Cloud Run. The second role was added for the
+`investigate-performance` skill, which reads Cloud Logging directly and has no
+connection to this dashboard.
 
 The key lives at `grafana/gcp-key.json` and the path is set in `grafana/.env`.
 Both are gitignored. To recreate:
