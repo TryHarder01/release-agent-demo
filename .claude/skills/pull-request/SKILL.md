@@ -148,9 +148,15 @@ not a section.
 
 ```verbatim command output, real numbers```
 
-One line each on what wasn't run and why, what's deliberately out of scope, and
-how to revert.
+- What wasn't run, and why.
+- What's deliberately out of scope.
+- How to revert.
 ```
+
+The gaps are a bulleted list even in the smallest PR. A reviewer scans them for
+one item — "did they say what they didn't run?" — and prose makes them read all
+five to find it. Skip the bold lead-in on each; plain sentences read faster and
+`- **Thing** — explanation` on every line is a tell.
 
 A large change earns headings. Use `## Verification` and `## Notes` verbatim —
 reviewers navigate to those by name — and make every other heading name what
