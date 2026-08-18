@@ -114,6 +114,9 @@ say what each proves.
 If computer use, attachment, or the relevant UI path is unavailable, put that
 in **Unknowns**. Never silently omit visual evidence for a UI-reachable change.
 
+Post the completed brief as a comment on the pull request under review. The
+pull request is the human review surface; an Oz-run-only result is incomplete.
+
 ## Verdict
 
 Use the vocabulary in `NORTHSTAR.md`, which maps onto the report's verdicts:
@@ -146,6 +149,9 @@ assert what you can run.
   brief with no unknowns is a sales pitch.
 - **What would change this decision** — the specific evidence that would move
   the verdict either way.
+
+Post this complete brief to the pull request as a comment. Include the direct
+artifact links there, not only in the Oz run.
 
 Report a gap you found and could not measure. Report a gap you suspected and
 disproved. Both are more useful than a clean narrative.
