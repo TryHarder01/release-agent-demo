@@ -1,0 +1,4 @@
+interface:
+  display_name: "Warp Oz CLI"
+  short_description: "Run and manage Oz agents from a shell"
+  default_prompt: "Use $warp-oz-cli to inspect or run an Oz agent."

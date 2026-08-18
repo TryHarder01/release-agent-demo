@@ -1,0 +1,4 @@
+interface:
+  display_name: "Warp Oz TypeScript SDK"
+  short_description: "Integrate Oz runs from TypeScript"
+  default_prompt: "Use $warp-oz-typescript-sdk to integrate Oz into this TypeScript code."

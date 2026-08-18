@@ -1,0 +1,4 @@
+interface:
+  display_name: "Warp Oz Python SDK"
+  short_description: "Integrate Oz runs from Python"
+  default_prompt: "Use $warp-oz-python-sdk to integrate Oz into this Python code."

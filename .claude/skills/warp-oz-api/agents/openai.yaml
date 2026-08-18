@@ -1,0 +1,4 @@
+interface:
+  display_name: "Warp Oz API"
+  short_description: "Orchestrate Oz runs over HTTP"
+  default_prompt: "Use $warp-oz-api to integrate with Oz over HTTP."
