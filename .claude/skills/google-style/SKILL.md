@@ -26,9 +26,20 @@ enforces them.
 5. **Free buried verbs.** `provides a description of` → `describes`.
 6. **Match the container to the content.** Ordered steps → numbered list, each
    starting with an imperative verb. Items with two or more attributes → table.
-   Two items, or ideas that flow → prose. Never a bulleted list of one thing.
+   Three or more parallel items, when the reader wants one → bulleted list. Two
+   items, or ideas that connect → prose.
 7. **Sentence case headings, no `-ing` opener.** "Deploy to Cloud Run," not
    "Deploying To Cloud Run."
+
+The test for a bulleted list is whether a reader wants **one** item, not all of
+them. Gaps in a PR, unrelated caveats, options — those are lists. Steps in an
+argument are prose, because the connective tissue is the point, and the tell
+that a list was wrong is items that only make sense read in order.
+
+A bold lead-in is a name, not decoration. `**Scale the document**` labels a rule
+a reader can look up, which is why the list above uses them. A line like
+`- **Robust error handling** — we made errors better` invents a label for a
+sentence, and that is the version that reads as machine-written.
 
 ## The heading test
 
