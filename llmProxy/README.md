@@ -25,6 +25,15 @@ The fixture intentionally excludes Gemini, non-streaming calls, arbitrary
 model IDs, key issuance, prompt caching, and CI/CD automation. Adding any of
 those makes the demo harder to understand without proving more about Warp.
 
+## Identify the deployed revision
+
+`GET /meta` returns the proxy's semantic version and the Cloud Run revision
+that served the request. It does not require an API key.
+
+```bash
+curl https://YOUR_SERVICE_URL/meta
+```
+
 ## Deploy
 
 Run these commands from `llmProxy/`. They use Cloud Run source deployment, so

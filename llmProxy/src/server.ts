@@ -12,6 +12,7 @@ app.use(express.json({ limit: config.maxBodyBytes }));
 const keys = new ApiKeyStore(config.projectId!, config.secretName);
 const limiter = new KeyLimiter(config.requestsPerMinute, config.concurrentStreams);
 app.get("/health", (_req, res) => res.json({ status: "ok" }));
+app.get("/meta", (_req, res) => res.json({ version: config.version, revision: process.env.K_REVISION ?? null }));
 app.get("/v1/models", async (req, res) => {
   const apiKey = extractApiKey(req.headers);
   const keyId = await keys.check(apiKey);

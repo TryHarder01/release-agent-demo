@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { catalog } from "../src/config.js";
+import { catalog, config } from "../src/config.js";
 import { OpenAIError } from "../src/errors.js";
 import { validateGeminiRequest } from "../src/adapters/gemini.js";
 
@@ -9,6 +9,11 @@ describe("catalog", () => {
       expect.objectContaining({ id: "vertex-gemini-3-1-flash-lite", target: "google/gemini-3.1-flash-lite" }),
       expect.objectContaining({ id: "vertex-gemini-2-0-flash-lite", target: "google/gemini-2.0-flash-lite" }),
     ]));
+  });
+
+  it("sets a semantic release version", () => {
+    expect(catalog).toHaveLength(2);
+    expect(config.version).toMatch(/^\d+\.\d+\.\d+$/);
   });
 });
 

@@ -16,6 +16,7 @@ export const catalog = [
 ] as const;
 
 export const config = {
+  version: "0.2.0",
   port: Number(process.env.PORT ?? 8080),
   projectId: process.env.VERTEX_PROJECT_ID ?? process.env.GOOGLE_CLOUD_PROJECT,
   secretName: process.env.API_KEYS_SECRET_NAME ?? "llm-proxy-api-keys",
