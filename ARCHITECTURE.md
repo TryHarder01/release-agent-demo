@@ -81,20 +81,25 @@ flowchart TB
     fleetnet["FleetNet Route Planner\nfleet routing dashboard + API\none container, one URL"]
 
     gha["GitHub Actions\nexternal · runs CI and release jobs"]
+    ar["Artifact Registry\nexternal · stores immutable git-sha images"]
     run["Google Cloud Run\nexternal · hosts revisions, splits traffic"]
+    gcm["Cloud Monitoring\nexternal · stores Cloud Run request metrics"]
 
     dispatcher -->|"HTTPS · plans a lane"| fleetnet
     agent -->|"GET /health, /metrics · drives the real UI"| fleetnet
     agent -.->|"deploy candidate / promote"| run
     gha -.->|"hosts the release job"| agent
+    gha -.->|"pushes git-sha image on main"| ar
+    ar -.->|"the only thing a deploy may reference"| run
     run -->|"serves"| fleetnet
+    run -->|"exports request metrics"| gcm
 
     classDef actor    fill:#dbe4f0,stroke:#41567a,stroke-width:1.5px,color:#12233b
     classDef owned    fill:#c3ddfb,stroke:#2264ab,stroke-width:1.5px,color:#12233b
     classDef external fill:#e7e7ea,stroke:#87878f,stroke-width:1.5px,color:#12233b
     class dispatcher,agent actor
     class fleetnet owned
-    class gha,run external
+    class gha,ar,run,gcm external
 ```
 
 _Legend S — hue = ownership. Solid = runtime request path; dashed = deploy-time action._
@@ -110,7 +115,9 @@ workflow with `auto_promote` enabled — the architecture does not care which.
 | Release agent | `scripts/verify-release.mjs` + `promote.sh`, driven by a human or `release.yml` |
 | FleetNet Route Planner | This repo — `server/` + `web/`, one image |
 | GitHub Actions | `.github/workflows/ci.yml`, `.github/workflows/release.yml` |
+| Artifact Registry | `…/warpdemo/fleetnet-route-planner:git-<full-sha>`, pushed by `ci.yml` on `main` |
 | Google Cloud Run | Service `fleetnet-route-planner`, region default `northamerica-northeast1` |
+| Cloud Monitoring | Cloud Run's own `request_count` / `request_latencies`, read by `grafana/` over PromQL |
 
 ---
 
@@ -131,7 +138,13 @@ flowchart TB
         capture["Media capture\nscripts/capture-demo.mjs"]
     end
 
+    subgraph obs["Observability — docker compose on an operator machine, not in the image"]
+        dashboards["Dashboards + datasource\ngrafana/dashboards, grafana/provisioning"]
+        grafana["Grafana + GMP proxy\nexternal images"]
+    end
+
     run["Cloud Run\nexternal"]
+    gcm["Cloud Monitoring\nexternal"]
 
     dispatcher -->|"HTTPS"| spa
     spa -->|"POST /api/route · same origin, no CORS"| api
@@ -140,32 +153,42 @@ flowchart TB
     pw -->|"drives the real UI"| spa
     capture -->|"screenshots + video"| spa
     run -.->|"pulls image, injects PORT"| runtime
+    run -->|"exports request metrics"| gcm
+    dashboards -.->|"provisioned into"| grafana
+    grafana -->|"PromQL through the proxy"| gcm
 
     classDef actor    fill:#dbe4f0,stroke:#41567a,stroke-width:1.5px,color:#12233b
     classDef owned    fill:#c3ddfb,stroke:#2264ab,stroke-width:1.5px,color:#12233b
     classDef external fill:#e7e7ea,stroke:#87878f,stroke-width:1.5px,color:#12233b
     classDef boundary fill:#fafbfd,stroke:#9db2cd,stroke-width:1px,stroke-dasharray:4 3,color:#12233b
     class dispatcher actor
-    class spa,api,verifier,pw,capture owned
-    class run external
-    class runtime,releasetime boundary
+    class spa,api,verifier,pw,capture,dashboards owned
+    class grafana,run,gcm external
+    class runtime,releasetime,obs boundary
 ```
 
-_Legend S — hue = ownership. Both boundaries are ours; the dashed outline marks containment, not a category._
+_Legend S — hue = ownership. All three boundaries are ours; the dashed outline marks containment, not a category._
 
-The two boundaries are the load-bearing distinction. Everything in **Runtime**
-ships inside the image and serves users. Everything in **Release-time** exists
-only to interrogate a candidate and is never deployed — which is why the
-verifier can afford to generate load and reset counters without a production
-blast radius.
+The boundaries are the load-bearing distinction. Everything in **Runtime** ships
+inside the image and serves users. Everything in **Release-time** exists only to
+interrogate a candidate and is never deployed — which is why the verifier can
+afford to generate load and reset counters without a production blast radius.
+**Observability** is a third category again: it reads history after the fact and
+no release decision depends on it, so a broken dashboard cannot block a release.
+
+Note what the observability stack does *not* read: the gate's numbers come from
+the candidate's own `/metrics`, not from Cloud Monitoring. Monitoring ingestion
+lags by up to a minute, and a gate that waits on someone else's pipeline is a
+gate that flakes.
 
 | Container | Path | Notes |
 | --- | --- | --- |
 | Web SPA | `web/src/` → `web/dist/` | Built in Dockerfile stage 1, copied into the runtime stage |
-| API server | `server/src/` | Serves `/api/*`, `/health`, `/metrics`, and the SPA fallback |
+| API server | `server/src/` | Serves `/api/*`, `/health`, `/metrics`, `/metrics/prometheus`, and the SPA fallback |
 | Release verifier | `scripts/verify-release.mjs` | Exits 0 / 1 / 2; writes `release-report.json` |
 | Playwright | `e2e/route.spec.js` | `@critical` subset gates the release |
 | Media capture | `scripts/capture-demo.mjs` | Visual evidence for PRs and release artifacts |
+| Dashboards + datasource | `grafana/` | `docker compose up`; a stock Prometheus datasource aimed at the GMP proxy, so the PromQL is portable |
 
 ---
 
@@ -174,15 +197,15 @@ blast radius.
 ```mermaid
 flowchart TB
     subgraph browser["Browser — the built SPA"]
-        appjsx["App.jsx\nform, results, health poll"]
+        appjsx["App.jsx\nlane form over a fixed location list\nresults, health poll"]
         apijs["api.js\nfetch + response-contract validation"]
     end
 
     subgraph server["Node process — server/src"]
         index["index.js\nbinds PORT"]
-        app["app.js\nExpress wiring · /health · /metrics · /api/route"]
-        engine["routeEngine.js\ndeterministic routing, ValidationError"]
-        metrics["metrics.js\ncounters + p50/p95/p99"]
+        app["app.js\nExpress wiring · /health · /metrics\n/metrics/prometheus · /api/route"]
+        engine["routeEngine.js\ndeterministic routing, service-level SLA\ndispatch risk, ValidationError"]
+        metrics["metrics.js\ncounters + p50/p95/p99\ndispatch profiles + Prometheus text"]
     end
 
     appjsx -->|"calls"| apijs
@@ -208,15 +231,22 @@ The significance goes in the table instead.
 | Component | Responsibility | Why it matters to the release gate |
 | --- | --- | --- |
 | `web/src/api.js` | Validates that `distance_miles`, `duration_minutes`, `status` are present | Turns a silent schema drift into a thrown error the browser test can see — this is where regression A becomes visible |
-| `web/src/App.jsx` | Form, results, 15s health poll | The `data-testid` hooks Playwright asserts against |
-| `server/src/app.js` | Express wiring; `ROUTE_DELAY_MS` injects upstream latency | The knob that reproduces regression B without a code change |
-| `server/src/routeEngine.js` | Deterministic routing; seeded lanes + FNV-1a fallback | Determinism is what lets e2e assert `312 mi / 338 min` exactly |
-| `server/src/metrics.js` | In-process counters, percentiles over a 500-sample window | The entire observability stack the policy needs — no external APM |
+| `web/src/App.jsx` | Origin/destination selects over a fixed location list, vehicle + service level, results, 15s health poll | The `data-testid` hooks Playwright asserts against; the poll surfaces the deployed commit as `release-version` |
+| `server/src/app.js` | Express wiring; `ROUTE_DELAY_MS` injects upstream latency; stamps `version` / `image_tag` from env | The knob that reproduces regression B without a code change; the stamp is how a revision is tied back to its image |
+| `server/src/routeEngine.js` | Deterministic routing; seeded lanes + FNV-1a fallback; service-level buffer → `delivery_sla_minutes`; `dispatch_risk` | Determinism is what lets e2e assert `312 mi / 338 min` exactly — service level changes the commitment, never the road time |
+| `server/src/metrics.js` | In-process counters, percentiles over a 500-sample window, bounded dispatch profiles, Prometheus exposition | Supplies every number the policy reads, with no external APM in the decision path |
 | `server/src/index.js` | Binds `PORT` | Cloud Run injects it |
 
 Only 5xx responses count as errors. A `400` from a rejected bad request is the
 API working correctly, and counting it would make validation coverage look like
 an outage.
+
+The two telemetry endpoints are deliberately separate. `/metrics` is the compact
+JSON contract the verifier reads and must stay stable; `/metrics/prometheus`
+carries richer app dimensions for a scraper. Dispatch-profile labels are
+deliberately low-cardinality — vehicle type, service level, distance band,
+traffic band, status, risk — and never a lane or a customer, so the series count
+stays bounded no matter how many lanes are planned.
 
 ---
 
@@ -229,15 +259,15 @@ flowchart LR
 
     subgraph service["Cloud Run service — one stable URL, many revisions"]
         prod["Revision N-1\n100% traffic\nstable URL"]
-        cand["Revision N\n0% traffic\ntag: candidate"]
+        cand["Revision N\n0% traffic\ntag: candidate\nname suffix: git-shortsha"]
     end
 
-    registry["Container image\nexternal · built from source at deploy"]
+    registry["Artifact Registry image\nexternal · CI-built tag git-fullsha"]
 
     users -->|"stable URL"| prod
     agent -->|"verifies via the tagged URL"| cand
-    registry -.->|"deploy.sh --no-traffic"| cand
-    cand -.->|"promote.sh · only after PROMOTE"| prod
+    registry -.->|"deploy.sh --no-traffic · IMAGE_REF required"| cand
+    cand -.->|"promote.sh REVISION · only after PROMOTE"| prod
 
     classDef actor    fill:#dbe4f0,stroke:#41567a,stroke-width:1.5px,color:#12233b
     classDef owned    fill:#c3ddfb,stroke:#2264ab,stroke-width:1.5px,color:#12233b
@@ -256,9 +286,18 @@ has its own tagged URL, which is the `BASE_URL` the verifier and Playwright run
 against. A failing candidate costs nothing to abandon — it is left at 0% and
 production never noticed.
 
-`promote.sh` with no argument sends 100% to the latest revision; with a revision
-name it rolls back. Promotion and rollback are the same operation pointed at a
-different revision, which is why rollback needs no separate rehearsal.
+**A deploy never builds.** `deploy.sh` requires `IMAGE_REF` and refuses anything
+that is not the immutable `git-<full-sha>` tag `ci.yml` pushed, so the artifact
+that was tested is byte-for-byte the artifact that deploys. The short SHA is then
+carried through three places — the revision-name suffix, `/health`'s `version`
+and `image_tag`, and the commit badge in the UI header — which is what lets a
+dashboard row or a screenshot be traced back to an image with no external lookup.
+
+`promote.sh` takes the target revision as an argument and **refuses to run
+without one**; there is no "promote whatever is latest". Promotion and rollback
+are therefore the same operation pointed at a different revision, which is why
+rollback needs no separate rehearsal — and why `release.yml` passes the exact
+`candidate_revision` that `deploy.sh` reported rather than trusting ordering.
 
 ---
 
@@ -310,6 +349,13 @@ release into a binary an agent cannot reason about.
 `release-report.json` writes a `checks` object whose keys map one-to-one onto
 these rows, so a downstream agent branches on data rather than parsing output.
 
+One input bypasses all of it. `release.yml` accepts `fast_track`, which skips
+install, Playwright, verification, and media capture, then promotes the candidate
+revision outright. It produces no verdict and no `release-report.json`, so a
+fast-tracked revision is the one case where production is serving something no
+gate has looked at. It is labelled development-only in the workflow input, and
+that label is the whole control.
+
 ---
 
 ## What each stage can and cannot see
@@ -317,13 +363,14 @@ these rows, so a downstream agent branches on data rather than parsing output.
 This is the argument the whole repository exists to make.
 
 ```mermaid
-flowchart LR
+flowchart TB
     subgraph ci["CI — ci.yml, on every PR"]
         ci1["✓ unit + API tests"]
         ci2["✓ web bundle builds"]
         ci3["✓ container image builds"]
         ci4["— response-contract drift\nno browser runs here"]
         ci5["— latency under load\nnothing is deployed yet"]
+        ci6["— fitness of the pushed image\na push on main is not a release"]
     end
 
     subgraph rel["Release — release.yml, after deploy at 0% traffic"]
@@ -333,14 +380,19 @@ flowchart LR
         r4["✓ p95 latency under load"]
     end
 
+    subgraph fast["Bypass — release.yml with fast_track: true"]
+        f1["— no check runs, no verdict is written\npromoted on the operator's word alone"]
+    end
+
     ci -->|"green CI is necessary, not sufficient"| rel
+    rel -.->|"fast_track skips every check above"| fast
 
     classDef pass  fill:#c8e6d0,stroke:#2e7d4f,stroke-width:1.5px,color:#12233b
     classDef blind fill:#e7e7ea,stroke:#87878f,stroke-width:1.5px,color:#12233b
     classDef boundary fill:#fafbfd,stroke:#9db2cd,stroke-width:1px,stroke-dasharray:4 3,color:#12233b
     class ci1,ci2,ci3,r1,r2,r3,r4 pass
-    class ci4,ci5 blind
-    class ci,rel boundary
+    class ci4,ci5,ci6,f1 blind
+    class ci,rel,fast boundary
 ```
 
 _Legend R — green = caught at this stage; grey = structurally invisible to it. The grey rows are the payload._
@@ -358,27 +410,35 @@ specified regressions both exploit exactly this gap:
 Both are green through every pre-merge check and deploy successfully. Only a
 post-deployment gate catches them.
 
+The `push` job in `ci.yml` sits in the same trap by design. It publishes
+`git-<sha>` to Artifact Registry on every merge to `main`, and its own step
+summary says so in as many words: the image has passed unit tests and nothing
+else. An image existing in the registry is evidence a build succeeded, never
+evidence a release is promotable.
+
 ---
 
 ## Where things live
 
 | Path | Responsibility |
 | --- | --- |
-| `server/src/routeEngine.js` | Deterministic fake routing |
-| `server/src/metrics.js` | In-process counters and latency percentiles |
-| `server/src/app.js` | Express app — API + static SPA |
+| `server/src/routeEngine.js` | Deterministic fake routing, service-level SLA, dispatch risk |
+| `server/src/metrics.js` | In-process counters, latency percentiles, dispatch profiles, Prometheus text |
+| `server/src/app.js` | Express app — API + telemetry endpoints + static SPA |
 | `server/src/index.js` | Process bootstrap, binds `PORT` |
 | `web/src/App.jsx` | The dashboard |
 | `web/src/api.js` | Response-contract validation |
 | `e2e/route.spec.js` | `@critical` release-gating specs |
 | `e2e/demo.spec.js` | Recorded walkthrough |
+| `e2e/screenshots.spec.js` | Screenshots for PR previews and release artifacts |
 | `scripts/verify-release.mjs` | The release gate |
 | `scripts/verify-local.sh` | Full rehearsal against a local container |
-| `scripts/deploy.sh` | Candidate deploy at 0% traffic |
-| `scripts/promote.sh` | Promote or roll back |
-| `.github/workflows/ci.yml` | Pre-merge checks + visual preview comment |
+| `scripts/deploy.sh` | Candidate deploy at 0% traffic from a CI-built image |
+| `scripts/promote.sh` | Shift traffic to a named revision — promote or roll back |
+| `grafana/` | Local Grafana + GMP proxy over Cloud Run metrics; two provisioned dashboards |
+| `.github/workflows/ci.yml` | Pre-merge checks, visual preview comment, image push on `main` |
 | `.github/workflows/release.yml` | Deploy → verify → optionally promote |
-| `docs/` | Policy, deployment, regression playbook |
+| `docs/` | Policy, deployment, GCP setup, regression playbook |
 
 ---
 
@@ -412,3 +472,13 @@ branch on the same signal without parsing text.
 **Candidates deploy at 0% traffic.** Verification runs against a real revision on
 real infrastructure while users are still served by the previous one. This is
 what makes a failed verification cheap: the fix is to do nothing.
+
+_Appended on the refresh from `595e651`; nothing above was edited._ Two of the
+decisions above have picked up context since they were written. **Telemetry is
+in-process** still holds for the gate — the verifier reads only the candidate's
+own `/metrics`, and `grafana/` plus `/metrics/prometheus` sit outside the decision
+path, for humans reading history. **Candidates deploy at 0% traffic** is now
+enforced harder: `deploy.sh` refuses anything but a CI-built `git-<full-sha>`
+image and `promote.sh` refuses to run without an explicit target revision. The
+one pull in the other direction is `release.yml`'s `fast_track`, which promotes
+with no verdict at all.
